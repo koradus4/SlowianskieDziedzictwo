@@ -14,3 +14,4 @@ psycopg2-binary>=2.9.9
 # WSGI server for production
 gunicorn>=21.2.0
 google-cloud-texttospeech>=2.14.0
+pydub>=0.25.1
