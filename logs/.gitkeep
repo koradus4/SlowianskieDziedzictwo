@@ -1,0 +1,2 @@
+# Ten folder przechowuje logi gry (game.log + session_*.json)
+# Pliki logów są ignorowane przez .gitignore

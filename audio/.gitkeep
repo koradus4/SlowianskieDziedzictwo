@@ -1,0 +1,2 @@
+# Ten folder przechowuje dynamicznie generowane pliki audio TTS
+# Pliki *.wav są ignorowane przez .gitignore
