@@ -8,6 +8,7 @@ from pathlib import Path
 import uuid
 import re
 import wave
+import tempfile
 
 # Spróbuj zaimportować Google Cloud Storage i TTS
 try:
@@ -128,16 +129,17 @@ class TTSEngine:
             return None
     
     def _syntezuj_google_tts(self, tekst: str, voice_name: str = "pl-PL-Wavenet-B") -> str:
-        """Generuje audio przez Google Cloud TTS z wybranym głosem i zwraca publiczny URL"""
+        """Generuje audio przez Google Cloud TTS i zwraca publiczny URL"""
         try:
             # Przygotuj żądanie
             synthesis_input = texttospeech.SynthesisInput(text=tekst)
             
             # Wybierz głos polski
+            gender = texttospeech.SsmlVoiceGender.MALE if "B" in voice_name or "C" in voice_name else texttospeech.SsmlVoiceGender.FEMALE
             voice = texttospeech.VoiceSelectionParams(
                 language_code="pl-PL",
                 name=voice_name,
-                ssml_gender=texttospeech.SsmlVoiceGender.MALE if "B" in voice_name or "C" in voice_name else texttospeech.SsmlVoiceGender.FEMALE
+                ssml_gender=gender
             )
             
             # Konfiguracja audio
@@ -154,10 +156,82 @@ class TTSEngine:
                 audio_config=audio_config
             )
             
+            # Zwróć raw bytes (do sklejania)
+            return response.audio_content
+            
+        except Exception as e:
+            print(f"❌ Błąd Google Cloud TTS: {e}")
+            return None
+    
+    def _syntezuj_google_tts_multi(self, segments: list) -> str:
+        """Generuje wielogłosowe audio i zwraca URL"""
+        if not HAS_PYDUB:
+            print("⚠️ Brak pydub - używam pojedynczego głosu")
+            tekst_pelny = " ".join([seg[1] for seg in segments])
+            return self._syntezuj_google_tts_single(tekst_pelny)
+        
+        try:
+            audio_parts = []
+            
+            # Mapowanie głosów
+            voice_map = {
+                "narrator": "pl-PL-Wavenet-B",  # Męski głęboki
+                "gracz": "pl-PL-Wavenet-C",      # Męski spokojny
+                "npc_m": "pl-PL-Wavenet-B",      # Męski (jak narrator)
+                "npc_k": "pl-PL-Wavenet-A"       # Kobieta wyrazista
+            }
+            
+            # Generuj audio dla każdego segmentu
+            for voice_type, tekst in segments:
+                if not tekst.strip():
+                    continue
+                
+                voice_name = voice_map.get(voice_type, "pl-PL-Wavenet-B")
+                audio_bytes = self._syntezuj_google_tts(tekst, voice_name)
+                
+                if audio_bytes:
+                    # Konwertuj bytes na AudioSegment
+                    temp_path = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.mp3"
+                    temp_path.write_bytes(audio_bytes)
+                    segment = AudioSegment.from_mp3(str(temp_path))
+                    audio_parts.append(segment)
+                    temp_path.unlink()
+            
+            if not audio_parts:
+                return None
+            
+            # Sklej wszystkie segmenty
+            combined = sum(audio_parts)
+            
+            # Zapisz do pliku
+            output_path = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.mp3"
+            combined.export(str(output_path), format="mp3")
+            
+            # Uploaduj do Cloud Storage
+            blob_name = f"audio/{output_path.name}"
+            blob = self.bucket.blob(blob_name)
+            blob.upload_from_filename(str(output_path))
+            
+            # Usuń tymczasowy plik
+            output_path.unlink()
+            
+            # Zwróć publiczny URL
+            return f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"
+            
+        except Exception as e:
+            print(f"❌ Błąd wielogłosowego TTS: {e}")
+            return None
+    
+    def _syntezuj_google_tts_single(self, tekst: str) -> str:
+        """Pojedynczy głos (fallback) - zwraca URL"""
+        try:
+            audio_bytes = self._syntezuj_google_tts(tekst, "pl-PL-Wavenet-B")
+            if not audio_bytes:
+                return None
+            
             # Zapisz do tymczasowego pliku
-            import tempfile
             temp_file = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.mp3"
-            temp_file.write_bytes(response.audio_content)
+            temp_file.write_bytes(audio_bytes)
             
             # Uploaduj do Cloud Storage
             blob_name = f"audio/{temp_file.name}"
@@ -180,13 +254,17 @@ class TTSEngine:
     
     def syntezuj_multi_voice(self, tekst: str, plec_gracza: str = "mezczyzna") -> str:
         """
-        Syntezuje tekst z wieloma głosami (Narrator, Gracz, NPC M/K)
-        Cloud TTS: parsuje tekst i generuje osobne pliki dla każdego głosu, potem skleja
-        Piper lokalnie: jak było wcześniej
+        Syntezuje tekst z wieloma głosami (Cloud TTS) lub pojedynczym (Piper)
         """
-        # Cloud TTS - multi-voice z parsowaniem
+        # Cloud TTS - wielogłosowa synteza
         if self.use_cloud_tts:
-            return self._syntezuj_multi_voice_cloud(tekst)
+            segments = self._parsuj_dialogi_cloud(tekst)
+            if segments:
+                return self._syntezuj_google_tts_multi(segments)
+            else:
+                # Fallback - pojedynczy głos
+                tekst_czysty = re.sub(r'\*\*[^:]+:\*\*\s*', '', tekst)
+                return self._syntezuj_google_tts_single(tekst_czysty)
         
         # Piper lokalnie - wielogłosowa synteza (stary kod)
         segments = self._parsuj_dialogi(tekst, plec_gracza)
@@ -209,66 +287,43 @@ class TTSEngine:
         
         return str(self._sklej_audio(audio_files))
     
-    def _syntezuj_multi_voice_cloud(self, tekst: str) -> str:
-        """Generuje multi-voice audio dla Cloud TTS"""
-        try:
-            # Parsuj tekst na segmenty
-            segments = self._parsuj_dialogi_cloud(tekst)
+    def _parsuj_dialogi_cloud(self, tekst: str) -> list:
+        """
+        Parsuje tekst dla Cloud TTS i zwraca listę (typ_głosu, tekst).
+        **Narrator:** → narrator
+        **Gracz:** → gracz
+        **NPC [M]:** → npc_m
+        **NPC [K]:** → npc_k
+        """
+        segments = []
+        
+        # Regex: **cokolwiek:** tekst (do następnego ** lub końca)
+        pattern = r'\*\*([^:]+):\*\*\s*([^*]+?)(?=\*\*|$)'
+        matches = re.findall(pattern, tekst, re.DOTALL)
+        
+        for speaker_raw, text in matches:
+            speaker = speaker_raw.strip()
+            text = text.strip()
             
-            if not segments:
-                # Fallback - cały tekst jako narrator
-                return self._syntezuj_google_tts(tekst, "pl-PL-Wavenet-B")
+            if not text:
+                continue
             
-            # Generuj audio dla każdego segmentu
-            audio_files = []
-            import tempfile
+            # Określ typ głosu
+            if "Narrator" in speaker or "narrator" in speaker:
+                voice_type = "narrator"
+            elif "Gracz" in speaker or "gracz" in speaker:
+                voice_type = "gracz"
+            elif "[K]" in speaker or "[k]" in speaker:
+                voice_type = "npc_k"
+            elif "[M]" in speaker or "[m]" in speaker:
+                voice_type = "npc_m"
+            else:
+                # Domyślnie narrator
+                voice_type = "narrator"
             
-            for speaker_type, text_segment in segments:
-                if not text_segment.strip():
-                    continue
-                
-                # Wybierz głos na podstawie typu
-                voice_map = {
-                    "narrator": "pl-PL-Wavenet-B",  # Męski głęboki
-                    "gracz": "pl-PL-Wavenet-C",     # Męski spokojny
-                    "npc_m": "pl-PL-Wavenet-B",     # Męski (jak narrator)
-                    "npc_k": "pl-PL-Wavenet-A"      # Kobieta wyrazista
-                }
-                
-                voice_name = voice_map.get(speaker_type, "pl-PL-Wavenet-B")
-                
-                # Generuj audio
-                temp_file = self._syntezuj_google_tts_file(text_segment, voice_name)
-                if temp_file:
-                    audio_files.append(temp_file)
-            
-            if not audio_files:
-                return None
-            
-            # Jeśli tylko jeden segment, uploaduj go
-            if len(audio_files) == 1:
-                return self._zapisz_audio_cloud(audio_files[0])
-            
-            # Sklej pliki audio
-            if not HAS_PYDUB:
-                print("⚠️ Brak pydub - zwracam pierwszy plik")
-                result = self._zapisz_audio_cloud(audio_files[0])
-                # Usuń tymczasowe pliki
-                for f in audio_files:
-                    f.unlink()
-                return result
-            
-            merged = self._sklej_audio_pydub(audio_files)
-            if merged:
-                cloud_url = self._zapisz_audio_cloud(merged)
-                merged.unlink()
-                return cloud_url
-            
-            return None
-            
-        except Exception as e:
-            print(f"❌ Błąd multi-voice Cloud TTS: {e}")
-            return None
+            segments.append((voice_type, text))
+        
+        return segments
     
     def _parsuj_dialogi(self, tekst: str, plec_gracza: str) -> list:
         """
@@ -330,123 +385,3 @@ class TTSEngine:
             print(f"Błąd sklejania audio: {e}")
             # Zwróć pierwszy plik jako fallback
             return audio_files[0] if audio_files else None
-    
-    def _parsuj_dialogi_cloud(self, tekst: str) -> list:
-        """Parsuje tekst na segmenty dla Cloud TTS multi-voice"""
-        segments = []
-        
-        # Regex do wyciągnięcia **Speaker:** text
-        pattern = r'\*\*([^:]+):\*\*\s*([^*]+?)(?=\*\*|$)'
-        matches = re.findall(pattern, tekst, re.DOTALL)
-        
-        for speaker, text in matches:
-            speaker = speaker.strip()
-            text = text.strip()
-            
-            # Mapuj speaker na typ
-            if "Narrator" in speaker or "narrator" in speaker:
-                speaker_type = "narrator"
-            elif "Gracz" in speaker or "gracz" in speaker:
-                speaker_type = "gracz"
-            elif "[M]" in speaker or "mężczyzna" in speaker.lower():
-                speaker_type = "npc_m"
-            elif "[K]" in speaker or "kobieta" in speaker.lower():
-                speaker_type = "npc_k"
-            else:
-                # Domyślnie narrator
-                speaker_type = "narrator"
-            
-            segments.append((speaker_type, text))
-        
-        return segments
-    
-    def _syntezuj_google_tts_file(self, tekst: str, voice_name: str) -> Path:
-        """Generuje tymczasowy plik MP3 dla podanego tekstu i głosu"""
-        import tempfile
-        
-        try:
-            # Konfiguracja głosu
-            voice = texttospeech.VoiceSelectionParams(
-                name=voice_name,
-                language_code="pl-PL",
-                ssml_gender=texttospeech.SsmlVoiceGender.MALE if "B" in voice_name or "C" in voice_name else texttospeech.SsmlVoiceGender.FEMALE
-            )
-            
-            # Konfiguracja audio
-            audio_config = texttospeech.AudioConfig(
-                audio_encoding=texttospeech.AudioEncoding.MP3,
-                speaking_rate=1.0,
-                pitch=0.0
-            )
-            
-            # Synteza
-            synthesis_input = texttospeech.SynthesisInput(text=tekst)
-            response = self.tts_client.synthesize_speech(
-                input=synthesis_input,
-                voice=voice,
-                audio_config=audio_config
-            )
-            
-            # Zapisz do tymczasowego pliku
-            temp_file = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.mp3"
-            temp_file.write_bytes(response.audio_content)
-            
-            return temp_file
-            
-        except Exception as e:
-            print(f"❌ Błąd generowania audio dla głosu {voice_name}: {e}")
-            return None
-    
-    def _sklej_audio_pydub(self, audio_files: list) -> Path:
-        """Skleja pliki MP3 używając pydub"""
-        import tempfile
-        
-        try:
-            combined = AudioSegment.empty()
-            
-            for audio_path in audio_files:
-                segment = AudioSegment.from_mp3(str(audio_path))
-                combined += segment
-            
-            # Zapisz sklejony plik
-            output_file = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.mp3"
-            combined.export(str(output_file), format="mp3")
-            
-            # Usuń tymczasowe pliki
-            for audio_path in audio_files:
-                try:
-                    audio_path.unlink()
-                except:
-                    pass
-            
-            return output_file
-            
-        except Exception as e:
-            print(f"❌ Błąd sklejania audio pydub: {e}")
-            return None
-
-    def _zapisz_audio_cloud(self, local_path: Path) -> str:
-        """Uploaduje lokalny plik MP3 do Cloud Storage i zwraca URL"""
-        try:
-            # Nazwa pliku w bucket
-            blob_name = f"audio/{uuid.uuid4().hex}.mp3"
-            
-            # Upload
-            blob = self.bucket.blob(blob_name)
-            blob.upload_from_filename(str(local_path))
-            
-            # Ustaw public access
-            blob.make_public()
-            
-            # Usuń lokalny plik
-            try:
-                local_path.unlink()
-            except:
-                pass
-            
-            # Zwróć publiczny URL
-            return blob.public_url
-            
-        except Exception as e:
-            print(f"❌ Błąd uploadu do Cloud Storage: {e}")
-            return None
