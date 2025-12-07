@@ -9,6 +9,8 @@ import sqlite3
 import random
 import os
 import json
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 from game_master import GameMaster
 from tts_engine import TTSEngine
@@ -29,6 +31,41 @@ DB_PATH = BASE_DIR / "game.db"
 db = Database(DB_PATH)
 game_master = GameMaster()
 tts = TTSEngine(BASE_DIR.parent / "PodcastGenerator")
+
+# === AUTO-CZYSZCZENIE STARYCH PLIKÓW ===
+def wyczysc_stare_pliki():
+    """Usuwa pliki audio i logi starsze niż 7 dni przy starcie serwera"""
+    try:
+        now = time.time()
+        days_7 = 7 * 24 * 60 * 60  # 7 dni w sekundach
+        
+        # Czyszczenie audio
+        audio_dir = BASE_DIR / "audio"
+        if audio_dir.exists():
+            usunięte_audio = 0
+            for plik in audio_dir.glob("*.wav"):
+                if now - plik.stat().st_mtime > days_7:
+                    plik.unlink()
+                    usunięte_audio += 1
+            if usunięte_audio > 0:
+                logger.info(f"🗑️ Usunięto {usunięte_audio} starych plików audio (>7 dni)")
+        
+        # Czyszczenie logów sesji
+        logs_dir = BASE_DIR / "logs"
+        if logs_dir.exists():
+            usunięte_logi = 0
+            for plik in logs_dir.glob("session_*.json"):
+                if now - plik.stat().st_mtime > days_7:
+                    plik.unlink()
+                    usunięte_logi += 1
+            if usunięte_logi > 0:
+                logger.info(f"🗑️ Usunięto {usunięte_logi} starych logów sesji (>7 dni)")
+                
+    except Exception as e:
+        logger.warning(f"⚠️ Błąd podczas czyszczenia starych plików: {e}")
+
+# Uruchom czyszczenie przy starcie
+wyczysc_stare_pliki()
 
 # === FUNKCJE POMOCNICZE ===
 
