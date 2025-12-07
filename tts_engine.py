@@ -9,16 +9,22 @@ import uuid
 import re
 import wave
 
-# Spróbuj zaimportować Google Cloud Storage (opcjonalnie)
+# Spróbuj zaimportować Google Cloud Storage i TTS
 try:
     from google.cloud import storage
     HAS_CLOUD_STORAGE = True
 except ImportError:
     HAS_CLOUD_STORAGE = False
 
+try:
+    from google.cloud import texttospeech
+    HAS_CLOUD_TTS = True
+except ImportError:
+    HAS_CLOUD_TTS = False
+
 
 class TTSEngine:
-    """Silnik TTS - Piper (lokalnie) lub Google Cloud (produkcja)"""
+    """Silnik TTS - Piper (lokalnie) lub Google Cloud TTS (produkcja)"""
     
     def __init__(self, podcast_dir: Path):
         self.podcast_dir = Path(podcast_dir)
@@ -38,6 +44,12 @@ class TTSEngine:
         # Cloud Storage
         self.bucket_name = os.environ.get('GCS_BUCKET_NAME')
         self.use_cloud = self.bucket_name and HAS_CLOUD_STORAGE
+        
+        # Cloud TTS (Google)
+        self.use_cloud_tts = HAS_CLOUD_TTS and self.use_cloud
+        if self.use_cloud_tts:
+            self.tts_client = texttospeech.TextToSpeechClient()
+            print(f"🔊 Używam Google Cloud Text-to-Speech")
         
         if self.use_cloud:
             self.storage_client = storage.Client()
@@ -61,8 +73,14 @@ class TTSEngine:
         # Zwróć publiczny URL (wymaga ustawienia bucket jako public)
         return f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"
     
-    def syntezuj(self, tekst: str, glos: str = "jarvis") -> Path:
-        """Syntezuje tekst do pliku audio"""
+    def syntezuj(self, tekst: str, glos: str = "jarvis") -> str:
+        """Syntezuje tekst do pliku audio i zwraca URL (cloud) lub Path (lokalnie)"""
+        
+        # Cloud TTS (Google - produkcja)
+        if self.use_cloud_tts:
+            return self._syntezuj_google_tts(tekst)
+        
+        # Piper lokalnie
         if not self.piper_exe.exists():
             print(f"Brak piper.exe: {self.piper_exe}")
             return None
@@ -72,14 +90,8 @@ class TTSEngine:
             print(f"Brak modelu głosu: {glos}")
             return None
         
-        # Unikalny plik wyjściowy (tymczasowo lokalnie, potem cloud)
-        if self.use_cloud:
-            # Tymczasowy plik lokalny przed uploadem
-            import tempfile
-            temp_dir = Path(tempfile.gettempdir())
-            output_file = temp_dir / f"{uuid.uuid4().hex}.wav"
-        else:
-            output_file = self.audio_dir / f"{uuid.uuid4().hex}.wav"
+        # Lokalny plik wyjściowy
+        output_file = self.audio_dir / f"{uuid.uuid4().hex}.wav"
         
         try:
             cmd = [
@@ -100,14 +112,7 @@ class TTSEngine:
             stdout, stderr = process.communicate(input=tekst.encode('utf-8'), timeout=60)
             
             if process.returncode == 0 and output_file.exists():
-                # Jeśli używamy Cloud Storage, uploaduj i zwróć URL
-                if self.use_cloud:
-                    cloud_url = self._zapisz_audio_cloud(output_file)
-                    # Usuń tymczasowy lokalny plik
-                    output_file.unlink()
-                    return cloud_url  # Zwróć URL zamiast Path
-                else:
-                    return output_file  # Lokalnie zwróć Path
+                return str(output_file)
             else:
                 print(f"Błąd TTS: {stderr.decode('utf-8', errors='ignore')[:100]}")
                 return None
@@ -116,39 +121,88 @@ class TTSEngine:
             print(f"Błąd syntezy: {e}")
             return None
     
+    def _syntezuj_google_tts(self, tekst: str) -> str:
+        """Generuje audio przez Google Cloud TTS i zwraca publiczny URL"""
+        try:
+            # Przygotuj żądanie
+            synthesis_input = texttospeech.SynthesisInput(text=tekst)
+            
+            # Wybierz głos polski (mężczyzna - Wavenet)
+            voice = texttospeech.VoiceSelectionParams(
+                language_code="pl-PL",
+                name="pl-PL-Wavenet-B",  # Męski głos
+                ssml_gender=texttospeech.SsmlVoiceGender.MALE
+            )
+            
+            # Konfiguracja audio
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=1.0,
+                pitch=0.0
+            )
+            
+            # Wywołaj API
+            response = self.tts_client.synthesize_speech(
+                input=synthesis_input,
+                voice=voice,
+                audio_config=audio_config
+            )
+            
+            # Zapisz do tymczasowego pliku
+            import tempfile
+            temp_file = Path(tempfile.gettempdir()) / f"{uuid.uuid4().hex}.mp3"
+            temp_file.write_bytes(response.audio_content)
+            
+            # Uploaduj do Cloud Storage
+            blob_name = f"audio/{temp_file.name}"
+            blob = self.bucket.blob(blob_name)
+            blob.upload_from_filename(str(temp_file))
+            
+            # Usuń tymczasowy plik
+            temp_file.unlink()
+            
+            # Zwróć publiczny URL
+            return f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"
+            
+        except Exception as e:
+            print(f"❌ Błąd Google Cloud TTS: {e}")
+            return None
+    
     def dostepne_glosy(self) -> list:
         """Zwraca listę dostępnych głosów"""
         return [g for g, p in self.glosy.items() if p.exists()]
     
-    def syntezuj_multi_voice(self, tekst: str, plec_gracza: str = "mezczyzna") -> Path:
+    def syntezuj_multi_voice(self, tekst: str, plec_gracza: str = "mezczyzna") -> str:
         """
-        Syntezuje tekst z wieloma głosami dla różnych postaci.
-        Format tekstu: **Narrator:** tekst, **Gracz:** tekst, **NPC [M/K]:** tekst
+        Dla Cloud TTS - pojedynczy głos (Google nie wspiera łatwego multi-voice)
+        Dla Piper lokalnie - wielogłosowa synteza (zachowana kompatybilność)
         """
-        # Parsuj tekst na segmenty z głosami
+        # Cloud TTS - pojedynczy głos dla całej narracji
+        if self.use_cloud_tts:
+            # Usuń formatowanie **Narrator:** itp. dla lepszej syntezy
+            tekst_czysty = re.sub(r'\*\*[^:]+:\*\*\s*', '', tekst)
+            return self._syntezuj_google_tts(tekst_czysty)
+        
+        # Piper lokalnie - wielogłosowa synteza
         segments = self._parsuj_dialogi(tekst, plec_gracza)
         
         if not segments:
-            # Fallback - cały tekst jako narrator
             return self.syntezuj(tekst, "jarvis")
         
-        # Generuj audio dla każdego segmentu
         audio_files = []
         for speaker, text in segments:
             if text.strip():
                 audio_path = self.syntezuj(text, speaker)
                 if audio_path:
-                    audio_files.append(audio_path)
+                    audio_files.append(Path(audio_path))
         
         if not audio_files:
             return None
         
-        # Jeśli tylko jeden plik, zwróć go
         if len(audio_files) == 1:
-            return audio_files[0]
+            return str(audio_files[0])
         
-        # Sklej wszystkie pliki WAV
-        return self._sklej_audio(audio_files)
+        return str(self._sklej_audio(audio_files))
     
     def _parsuj_dialogi(self, tekst: str, plec_gracza: str) -> list:
         """
