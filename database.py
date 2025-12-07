@@ -47,86 +47,95 @@ class Database:
         conn = self._polacz()
         cursor = conn.cursor()
         
-        # Użyj odpowiedniej składni dla PostgreSQL lub SQLite
-        if self.use_postgres:
-            # PostgreSQL używa SERIAL zamiast AUTOINCREMENT
-            id_type = "SERIAL PRIMARY KEY"
-            text_type = "TEXT"
-            timestamp_default = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-        else:
-            # SQLite
-            id_type = "INTEGER PRIMARY KEY AUTOINCREMENT"
-            text_type = "TEXT"
-            timestamp_default = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-        
-        # Tabela postaci
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS postacie (
-                id {id_type},
-                imie {text_type} NOT NULL,
-                plec {text_type} DEFAULT 'mezczyzna',
-                lud {text_type},
-                klasa {text_type},
-                hp INTEGER DEFAULT 100,
-                hp_max INTEGER DEFAULT 100,
-                poziom INTEGER DEFAULT 1,
-                doswiadczenie INTEGER DEFAULT 0,
-                zloto INTEGER DEFAULT 10,
-                statystyki {text_type},
-                ekwipunek {text_type},
-                towarzysze {text_type},
-                lokacja {text_type} DEFAULT 'gniezno',
-                created_at {timestamp_default}
-            )
-        """)
-        
-        # Migracja - dodaj kolumnę towarzysze jeśli nie istnieje
         try:
-            cursor.execute("ALTER TABLE postacie ADD COLUMN towarzysze TEXT")
+            # Użyj odpowiedniej składni dla PostgreSQL lub SQLite
+            if self.use_postgres:
+                # PostgreSQL używa SERIAL zamiast AUTOINCREMENT
+                id_type = "SERIAL PRIMARY KEY"
+                text_type = "TEXT"
+                timestamp_default = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+            else:
+                # SQLite
+                id_type = "INTEGER PRIMARY KEY AUTOINCREMENT"
+                text_type = "TEXT"
+                timestamp_default = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+            
+            # Tabela postaci
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS postacie (
+                    id {id_type},
+                    imie {text_type} NOT NULL,
+                    plec {text_type} DEFAULT 'mezczyzna',
+                    lud {text_type},
+                    klasa {text_type},
+                    hp INTEGER DEFAULT 100,
+                    hp_max INTEGER DEFAULT 100,
+                    poziom INTEGER DEFAULT 1,
+                    doswiadczenie INTEGER DEFAULT 0,
+                    zloto INTEGER DEFAULT 10,
+                    statystyki {text_type},
+                    ekwipunek {text_type},
+                    towarzysze {text_type},
+                    lokacja {text_type} DEFAULT 'gniezno',
+                    created_at {timestamp_default}
+                )
+            """)
+            
             conn.commit()
-        except:
-            pass  # Kolumna już istnieje
-        
-        # Tabela historii gry
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS historia (
-                id {id_type},
-                postac_id INTEGER,
-                akcja_gracza {text_type},
-                odpowiedz_mg {text_type},
-                created_at {timestamp_default},
-                FOREIGN KEY (postac_id) REFERENCES postacie(id)
-            )
-        """)
-        
-        # Tabela questów
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS questy (
-                id {id_type},
-                postac_id INTEGER,
-                nazwa {text_type},
-                opis {text_type},
-                status {text_type} DEFAULT 'aktywny',
-                created_at {timestamp_default},
-                FOREIGN KEY (postac_id) REFERENCES postacie(id)
-            )
-        """)
-        
-        # Tabela zebranych artefaktów
-        cursor.execute(f"""
-            CREATE TABLE IF NOT EXISTS artefakty (
-                id {id_type},
-                postac_id INTEGER,
-                nazwa {text_type},
-                opis {text_type},
-                zebrano_at {timestamp_default},
-                FOREIGN KEY (postac_id) REFERENCES postacie(id)
-            )
-        """)
-        
-        conn.commit()
-        conn.close()
-        print("✅ Baza danych zainicjalizowana!")
+            
+            # Migracja - dodaj kolumnę towarzysze jeśli nie istnieje
+            try:
+                cursor.execute("ALTER TABLE postacie ADD COLUMN towarzysze TEXT")
+                conn.commit()
+            except:
+                conn.rollback()  # Rollback jeśli kolumna już istnieje
+            
+            # Tabela historii gry
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS historia (
+                    id {id_type},
+                    postac_id INTEGER,
+                    akcja_gracza {text_type},
+                    odpowiedz_mg {text_type},
+                    created_at {timestamp_default},
+                    FOREIGN KEY (postac_id) REFERENCES postacie(id)
+                )
+            """)
+            
+            # Tabela questów
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS questy (
+                    id {id_type},
+                    postac_id INTEGER,
+                    nazwa {text_type},
+                    opis {text_type},
+                    status {text_type} DEFAULT 'aktywny',
+                    created_at {timestamp_default},
+                    FOREIGN KEY (postac_id) REFERENCES postacie(id)
+                )
+            """)
+            
+            # Tabela zebranych artefaktów
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS artefakty (
+                    id {id_type},
+                    postac_id INTEGER,
+                    nazwa {text_type},
+                    opis {text_type},
+                    zebrano_at {timestamp_default},
+                    FOREIGN KEY (postac_id) REFERENCES postacie(id)
+                )
+            """)
+            
+            conn.commit()
+            conn.close()
+            print("✅ Baza danych zainicjalizowana!")
+            
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            print(f"❌ Błąd inicjalizacji bazy: {e}")
+            raise
     
     def zapisz_postac(self, postac: dict) -> int:
         """Zapisuje postać do bazy"""
