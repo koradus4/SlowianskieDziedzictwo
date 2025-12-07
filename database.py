@@ -143,12 +143,14 @@ class Database:
         cursor = conn.cursor()
         
         ph = self._placeholder()
-        cursor.execute(f"""
+        
+        base_query = f"""
             INSERT INTO postacie 
             (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, lokacja)
             VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
-            RETURNING id
-        """, (
+        """
+        
+        params = (
             postac.get('imie'),
             postac.get('plec', 'mezczyzna'),
             postac.get('lud'),
@@ -162,11 +164,13 @@ class Database:
             json.dumps(postac.get('ekwipunek', [])),
             json.dumps(postac.get('towarzysze', [])),
             postac.get('lokacja', 'gniezno')
-        ))
-        
+        )
+
         if self.use_postgres:
-            postac_id = cursor.fetchone()[0]
+            cursor.execute(base_query + " RETURNING id", params)
+            postac_id = cursor.fetchone()['id'] if isinstance(cursor, psycopg2.extras.RealDictCursor) else cursor.fetchone()[0]
         else:
+            cursor.execute(base_query, params)
             postac_id = cursor.lastrowid
         
         conn.commit()
