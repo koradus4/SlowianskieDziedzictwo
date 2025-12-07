@@ -195,6 +195,20 @@ MIT License - możesz swobodnie używać, modyfikować i dystrybuować projekt.
 
 ---
 
+## ☁️ Google Cloud Deployment
+
+Chcesz wdrożyć grę na Google Cloud Run? Zobacz szczegółowy przewodnik:
+
+**👉 [CLOUD_DEPLOYMENT.md](./CLOUD_DEPLOYMENT.md)**
+
+Zawiera:
+- Konfigurację Cloud Storage dla audio
+- Opcjonalnie Cloud SQL (PostgreSQL)
+- Automatyczne skrypty deploymentu
+- Szacunkowe koszty ($0-7/miesiąc)
+
+---
+
 ## 🙏 Podziękowania
 
 - **Google Gemini** - za potężne AI do generowania narracji

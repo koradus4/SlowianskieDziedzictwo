@@ -1,5 +1,5 @@
 """
-Moduł TTS - Piper Text-to-Speech
+Moduł TTS - wspiera lokalny Piper i Google Cloud TTS
 """
 
 import subprocess
@@ -9,9 +9,16 @@ import uuid
 import re
 import wave
 
+# Spróbuj zaimportować Google Cloud Storage (opcjonalnie)
+try:
+    from google.cloud import storage
+    HAS_CLOUD_STORAGE = True
+except ImportError:
+    HAS_CLOUD_STORAGE = False
+
 
 class TTSEngine:
-    """Silnik TTS oparty na Piper"""
+    """Silnik TTS - Piper (lokalnie) lub Google Cloud (produkcja)"""
     
     def __init__(self, podcast_dir: Path):
         self.podcast_dir = Path(podcast_dir)
@@ -19,7 +26,7 @@ class TTSEngine:
         self.espeak_data = self.podcast_dir / "piper" / "espeak-ng-data"
         self.voices_dir = self.podcast_dir / "voices"
         
-        # Ścieżki do głosów
+        # Ścieżki do głosów (Piper lokalnie)
         self.glosy = {
             "jarvis": self.voices_dir / "jarvis" / "pl_PL-jarvis_wg_glos-medium.onnx",
             "meski": self.voices_dir / "meski" / "pl_PL-meski_wg_glos-medium.onnx",
@@ -28,9 +35,31 @@ class TTSEngine:
             "darkman": self.voices_dir / "darkman" / "pl_PL-darkman-medium.onnx"
         }
         
-        # Katalog na audio
-        self.audio_dir = Path(__file__).parent / "audio"
-        self.audio_dir.mkdir(exist_ok=True)
+        # Cloud Storage
+        self.bucket_name = os.environ.get('GCS_BUCKET_NAME')
+        self.use_cloud = self.bucket_name and HAS_CLOUD_STORAGE
+        
+        if self.use_cloud:
+            self.storage_client = storage.Client()
+            self.bucket = self.storage_client.bucket(self.bucket_name)
+            print(f"☁️ Używam Cloud Storage: gs://{self.bucket_name}")
+        else:
+            # Lokalny katalog na audio
+            self.audio_dir = Path(__file__).parent / "audio"
+            self.audio_dir.mkdir(exist_ok=True)
+            print(f"📁 Używam lokalnego audio: {self.audio_dir}")
+    
+    def _zapisz_audio_cloud(self, local_path: Path) -> str:
+        """Zapisuje plik audio do Cloud Storage i zwraca publiczny URL"""
+        if not self.use_cloud:
+            return None
+        
+        blob_name = f"audio/{local_path.name}"
+        blob = self.bucket.blob(blob_name)
+        blob.upload_from_filename(str(local_path))
+        
+        # Zwróć publiczny URL (wymaga ustawienia bucket jako public)
+        return f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"
     
     def syntezuj(self, tekst: str, glos: str = "jarvis") -> Path:
         """Syntezuje tekst do pliku audio"""
@@ -43,8 +72,14 @@ class TTSEngine:
             print(f"Brak modelu głosu: {glos}")
             return None
         
-        # Unikalny plik wyjściowy
-        output_file = self.audio_dir / f"{uuid.uuid4().hex}.wav"
+        # Unikalny plik wyjściowy (tymczasowo lokalnie, potem cloud)
+        if self.use_cloud:
+            # Tymczasowy plik lokalny przed uploadem
+            import tempfile
+            temp_dir = Path(tempfile.gettempdir())
+            output_file = temp_dir / f"{uuid.uuid4().hex}.wav"
+        else:
+            output_file = self.audio_dir / f"{uuid.uuid4().hex}.wav"
         
         try:
             cmd = [
@@ -65,7 +100,14 @@ class TTSEngine:
             stdout, stderr = process.communicate(input=tekst.encode('utf-8'), timeout=60)
             
             if process.returncode == 0 and output_file.exists():
-                return output_file
+                # Jeśli używamy Cloud Storage, uploaduj i zwróć URL
+                if self.use_cloud:
+                    cloud_url = self._zapisz_audio_cloud(output_file)
+                    # Usuń tymczasowy lokalny plik
+                    output_file.unlink()
+                    return cloud_url  # Zwróć URL zamiast Path
+                else:
+                    return output_file  # Lokalnie zwróć Path
             else:
                 print(f"Błąd TTS: {stderr.decode('utf-8', errors='ignore')[:100]}")
                 return None

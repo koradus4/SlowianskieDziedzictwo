@@ -1,45 +1,78 @@
 """
-Moduł bazy danych SQLite
+Moduł bazy danych - wspiera SQLite (lokalnie) i PostgreSQL (Cloud SQL)
 """
 
 import sqlite3
+import os
 from pathlib import Path
 import json
 from datetime import datetime
 
+# Spróbuj zaimportować psycopg2 dla PostgreSQL (opcjonalnie)
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    HAS_POSTGRES = True
+except ImportError:
+    HAS_POSTGRES = False
+
 
 class Database:
-    """Obsługa bazy danych gry"""
+    """Obsługa bazy danych gry (SQLite lokalnie, PostgreSQL w Cloud)"""
     
-    def __init__(self, db_path: Path):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Path = None):
+        # Sprawdź czy jest DATABASE_URL (Cloud SQL)
+        self.database_url = os.environ.get('DATABASE_URL')
+        self.use_postgres = self.database_url and HAS_POSTGRES
+        
+        if self.use_postgres:
+            print(f"🐘 Używam PostgreSQL (Cloud SQL)")
+        else:
+            self.db_path = Path(db_path) if db_path else Path("game.db")
+            print(f"📁 Używam SQLite: {self.db_path}")
     
     def _polacz(self):
-        return sqlite3.connect(self.db_path)
+        """Zwraca połączenie do bazy (SQLite lub PostgreSQL)"""
+        if self.use_postgres:
+            return psycopg2.connect(self.database_url, cursor_factory=RealDictCursor)
+        else:
+            return sqlite3.connect(self.db_path)
     
     def inicjalizuj(self):
         """Tworzy tabele w bazie danych"""
         conn = self._polacz()
         cursor = conn.cursor()
         
+        # Użyj odpowiedniej składni dla PostgreSQL lub SQLite
+        if self.use_postgres:
+            # PostgreSQL używa SERIAL zamiast AUTOINCREMENT
+            id_type = "SERIAL PRIMARY KEY"
+            text_type = "TEXT"
+            timestamp_default = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        else:
+            # SQLite
+            id_type = "INTEGER PRIMARY KEY AUTOINCREMENT"
+            text_type = "TEXT"
+            timestamp_default = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        
         # Tabela postaci
-        cursor.execute("""
+        cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS postacie (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                imie TEXT NOT NULL,
-                plec TEXT DEFAULT 'mezczyzna',
-                lud TEXT,
-                klasa TEXT,
+                id {id_type},
+                imie {text_type} NOT NULL,
+                plec {text_type} DEFAULT 'mezczyzna',
+                lud {text_type},
+                klasa {text_type},
                 hp INTEGER DEFAULT 100,
                 hp_max INTEGER DEFAULT 100,
                 poziom INTEGER DEFAULT 1,
                 doswiadczenie INTEGER DEFAULT 0,
                 zloto INTEGER DEFAULT 10,
-                statystyki TEXT,
-                ekwipunek TEXT,
-                towarzysze TEXT,
-                lokacja TEXT DEFAULT 'gniezno',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                statystyki {text_type},
+                ekwipunek {text_type},
+                towarzysze {text_type},
+                lokacja {text_type} DEFAULT 'gniezno',
+                created_at {timestamp_default}
             )
         """)
         
@@ -51,45 +84,45 @@ class Database:
             pass  # Kolumna już istnieje
         
         # Tabela historii gry
-        cursor.execute("""
+        cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS historia (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 postac_id INTEGER,
-                akcja_gracza TEXT,
-                odpowiedz_mg TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                akcja_gracza {text_type},
+                odpowiedz_mg {text_type},
+                created_at {timestamp_default},
                 FOREIGN KEY (postac_id) REFERENCES postacie(id)
             )
         """)
         
         # Tabela questów
-        cursor.execute("""
+        cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS questy (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 postac_id INTEGER,
-                nazwa TEXT,
-                opis TEXT,
-                status TEXT DEFAULT 'aktywny',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                nazwa {text_type},
+                opis {text_type},
+                status {text_type} DEFAULT 'aktywny',
+                created_at {timestamp_default},
                 FOREIGN KEY (postac_id) REFERENCES postacie(id)
             )
         """)
         
         # Tabela zebranych artefaktów
-        cursor.execute("""
+        cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS artefakty (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id {id_type},
                 postac_id INTEGER,
-                nazwa TEXT,
-                opis TEXT,
-                zebrano_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                nazwa {text_type},
+                opis {text_type},
+                zebrano_at {timestamp_default},
                 FOREIGN KEY (postac_id) REFERENCES postacie(id)
             )
         """)
         
         conn.commit()
         conn.close()
-        print("Baza danych zainicjalizowana!")
+        print("✅ Baza danych zainicjalizowana!")
     
     def zapisz_postac(self, postac: dict) -> int:
         """Zapisuje postać do bazy"""
