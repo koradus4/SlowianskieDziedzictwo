@@ -147,6 +147,7 @@ class Database:
             INSERT INTO postacie 
             (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, lokacja)
             VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            RETURNING id
         """, (
             postac.get('imie'),
             postac.get('plec', 'mezczyzna'),
@@ -163,7 +164,11 @@ class Database:
             postac.get('lokacja', 'gniezno')
         ))
         
-        postac_id = cursor.lastrowid
+        if self.use_postgres:
+            postac_id = cursor.fetchone()[0]
+        else:
+            postac_id = cursor.lastrowid
+        
         conn.commit()
         conn.close()
         return postac_id
