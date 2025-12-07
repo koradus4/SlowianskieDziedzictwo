@@ -108,12 +108,16 @@ WAŻNE O "towarzysze":
 Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
 
     def __init__(self, api_key: str = None):
-        # Pobierz klucz z ENV lub użyj domyślnego
-        self.api_key = api_key or os.getenv('GEMINI_API_KEY', "AIzaSyDrjdwUvVBDlEQ1r3NcAYAm2YbYzwr0Gtk")
+        # Pobierz klucz z ENV (WYMAGANY na Cloud Run)
+        self.api_key = api_key or os.getenv('GEMINI_API_KEY')
+        
+        if not self.api_key:
+            raise ValueError("❌ Brak GEMINI_API_KEY w zmiennych środowiskowych!")
+        
         genai.configure(api_key=self.api_key)
-        # Domyślny model Gemini - można zmienić jeżeli projekt ma limity dla innego modelu
-        # Zmienione na gemini-2.5-flash jako fallback (ma widoczne limity w panelu)
-        self.model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+        
+        # Model Gemini (z ENV lub domyślny)
+        self.model_name = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash-exp')
         self.model = genai.GenerativeModel(self.model_name)
         self.historia = []
         self.aktualne_hp = 100  # Przechowuj aktualne HP
