@@ -95,11 +95,13 @@ WAŻNE O "uczestnicy":
 WAŻNE O "towarzysze":
 - LIMIT: Gracz może mieć maksymalnie 3 towarzyszy jednocześnie
 - Sprawdź aktualną liczbę towarzyszy przed zaproponowaniem rekrutacji!
+- **HP towarzyszy:** ZAWSZE ustawiaj hp=25 i hp_max=25 dla NOWYCH towarzyszy!
+- Dla istniejących towarzyszy zachowaj ich aktualne HP z kontekstu
 - Koszt rekrutacji (przez "transakcje"):
   * Prosty towarzysz (wojownik, łucznik): 50 złota
   * Wykwalifikowany (kowal, uzdrowiciel, kapłan): 100 złota
   * Elitarny (mag, druid, mistrzowski wojownik): 200 złota
-- Towarzysze tracą HP w walce - obniżaj ich HP gdy dostają obrażenia
+- Towarzysze tracą HP w walce - obniżaj ich HP gdy dostają obrażenia (nigdy nie zwiększaj ponad hp_max!)
 - Gdy HP towarzyszy < 30%, mogą użyć mikstury z ekwipunku gracza (automatycznie)
 - Gdy HP towarzyszy = 0, nie usuwaj ich z listy - backend obsłuży śmierć/reanimację
 - Każdy towarzysz ma pole "ekwipunek": [] - możesz dodać tam 1-3 przedmioty

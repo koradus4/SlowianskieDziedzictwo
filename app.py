@@ -725,12 +725,23 @@ def rozpocznij_przygode():
     audio_path = tts.syntezuj_multi_voice(narracja, plec_gracza)
     game_log.log_tts(narracja, "multi-voice", audio_path is not None, str(audio_path) if audio_path else None)
     
+    # Przygotuj URL audio (lokalnie: /audio/plik.wav, cloud: pełny URL)
+    if audio_path:
+        if audio_path.startswith('http'):
+            # Cloud Storage - użyj pełnego URL
+            audio_url = audio_path
+        else:
+            # Lokalny plik - użyj /audio/plik.wav
+            audio_url = f"/audio/{os.path.basename(audio_path)}"
+    else:
+        audio_url = None
+    
     # Oblicz ładowność
     zajete, max_slotow, worki, zwierze = oblicz_ladownosc(postac)
     
     return jsonify({
         "tekst": narracja,
-        "audio": f"/audio/{os.path.basename(audio_path)}" if audio_path else None,
+        "audio": audio_url,
         "lokacja": wynik.get('lokacja', 'Gniezno'),
         "towarzysze": towarzysze,  # Używaj znormalizowanych towarzyszy
         "opcje": wynik.get('opcje', []),
@@ -894,6 +905,15 @@ def akcja():
     audio_path = tts.syntezuj_multi_voice(narracja, plec_gracza)
     game_log.log_tts(narracja, "multi-voice", audio_path is not None)
     
+    # Przygotuj URL audio (lokalnie: /audio/plik.wav, cloud: pełny URL)
+    if audio_path:
+        if audio_path.startswith('http'):
+            audio_url = audio_path
+        else:
+            audio_url = f"/audio/{os.path.basename(audio_path)}"
+    else:
+        audio_url = None
+    
     # Przetworz towarzyszy (HP, auto-leczenie, śmierć/reanimacja)
     towarzysze_raw = wynik.get('towarzysze', [])
     towarzysze, komunikaty_towarzyszy = przetworz_towarzyszy(towarzysze_raw, postac)
@@ -907,7 +927,7 @@ def akcja():
     
     return jsonify({
         "tekst": narracja,
-        "audio": f"/audio/{os.path.basename(audio_path)}" if audio_path else None,
+        "audio": audio_url,
         "lokacja": wynik.get('lokacja'),
         "towarzysze": towarzysze,
         "uczestnicy": wynik.get('uczestnicy', []),  # NOWE: wrogowie/NPC/bestie
