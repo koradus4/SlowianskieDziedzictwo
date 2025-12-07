@@ -29,6 +29,7 @@ DB_PATH = BASE_DIR / "game.db"
 
 # Inicjalizacja
 db = Database(DB_PATH)
+db.inicjalizuj()  # Tworzenie tabel przy starcie (dla Gunicorn na Cloud Run)
 game_master = GameMaster()
 tts = TTSEngine(BASE_DIR.parent / "PodcastGenerator")
 
