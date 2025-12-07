@@ -9,6 +9,11 @@ ENV PYTHONUNBUFFERED=1 \
 # Katalog roboczy
 WORKDIR /app
 
+# Instaluj ffmpeg (potrzebny dla pydub do wielogłosowego TTS)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Kopiuj requirements i zainstaluj zależności
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
