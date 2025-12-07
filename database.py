@@ -38,6 +38,10 @@ class Database:
         else:
             return sqlite3.connect(self.db_path)
     
+    def _placeholder(self):
+        """Zwraca odpowiedni placeholder dla bazy (%s dla Postgres, ? dla SQLite)"""
+        return '%s' if self.use_postgres else '?'
+    
     def inicjalizuj(self):
         """Tworzy tabele w bazie danych"""
         conn = self._polacz()
@@ -129,10 +133,11 @@ class Database:
         conn = self._polacz()
         cursor = conn.cursor()
         
-        cursor.execute("""
+        ph = self._placeholder()
+        cursor.execute(f"""
             INSERT INTO postacie 
             (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, lokacja)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
         """, (
             postac.get('imie'),
             postac.get('plec', 'mezczyzna'),
@@ -159,7 +164,8 @@ class Database:
         conn = self._polacz()
         cursor = conn.cursor()
         
-        cursor.execute("SELECT * FROM postacie WHERE id = ?", (postac_id,))
+        ph = self._placeholder()
+        cursor.execute(f"SELECT * FROM postacie WHERE id = {ph}", (postac_id,))
         row = cursor.fetchone()
         conn.close()
         
@@ -191,18 +197,19 @@ class Database:
         ustawienia = []
         wartosci = []
         
+        ph = self._placeholder()
         for klucz, wartosc in dane.items():
             if klucz in ['hp', 'zloto', 'poziom', 'doswiadczenie', 'lokacja']:
-                ustawienia.append(f"{klucz} = ?")
+                ustawienia.append(f"{klucz} = {ph}")
                 wartosci.append(wartosc)
             elif klucz in ['statystyki', 'ekwipunek', 'towarzysze']:
-                ustawienia.append(f"{klucz} = ?")
+                ustawienia.append(f"{klucz} = {ph}")
                 wartosci.append(json.dumps(wartosc))
         
         if ustawienia:
             wartosci.append(postac_id)
             cursor.execute(
-                f"UPDATE postacie SET {', '.join(ustawienia)} WHERE id = ?",
+                f"UPDATE postacie SET {', '.join(ustawienia)} WHERE id = {ph}",
                 wartosci
             )
             conn.commit()
@@ -214,9 +221,10 @@ class Database:
         conn = self._polacz()
         cursor = conn.cursor()
         
-        cursor.execute("""
+        ph = self._placeholder()
+        cursor.execute(f"""
             INSERT INTO historia (postac_id, akcja_gracza, odpowiedz_mg)
-            VALUES (?, ?, ?)
+            VALUES ({ph}, {ph}, {ph})
         """, (postac_id, akcja, odpowiedz))
         
         conn.commit()
@@ -227,12 +235,13 @@ class Database:
         conn = self._polacz()
         cursor = conn.cursor()
         
-        cursor.execute("""
+        ph = self._placeholder()
+        cursor.execute(f"""
             SELECT akcja_gracza, odpowiedz_mg, created_at 
             FROM historia 
-            WHERE postac_id = ? 
+            WHERE postac_id = {ph} 
             ORDER BY created_at DESC 
-            LIMIT ?
+            LIMIT {ph}
         """, (postac_id, limit))
         
         rows = cursor.fetchall()
@@ -248,9 +257,10 @@ class Database:
         conn = self._polacz()
         cursor = conn.cursor()
         
-        cursor.execute("""
+        ph = self._placeholder()
+        cursor.execute(f"""
             INSERT INTO artefakty (postac_id, nazwa, opis)
-            VALUES (?, ?, ?)
+            VALUES ({ph}, {ph}, {ph})
         """, (postac_id, nazwa, opis))
         
         conn.commit()
@@ -261,8 +271,9 @@ class Database:
         conn = self._polacz()
         cursor = conn.cursor()
         
-        cursor.execute("""
-            SELECT nazwa, opis FROM artefakty WHERE postac_id = ?
+        ph = self._placeholder()
+        cursor.execute(f"""
+            SELECT nazwa, opis FROM artefakty WHERE postac_id = {ph}
         """, (postac_id,))
         
         rows = cursor.fetchall()
@@ -275,11 +286,12 @@ class Database:
         conn = self._polacz()
         cursor = conn.cursor()
         
-        cursor.execute("""
+        ph = self._placeholder()
+        cursor.execute(f"""
             SELECT id, imie, lud, klasa, hp, poziom, lokacja, created_at
             FROM postacie 
             ORDER BY created_at DESC 
-            LIMIT ?
+            LIMIT {ph}
         """, (limit,))
         
         rows = cursor.fetchall()
@@ -302,11 +314,12 @@ class Database:
         cursor = conn.cursor()
         
         try:
+            ph = self._placeholder()
             # Usuń historię
-            cursor.execute("DELETE FROM historia WHERE postac_id = ?", (postac_id,))
+            cursor.execute(f"DELETE FROM historia WHERE postac_id = {ph}", (postac_id,))
             
             # Usuń postać
-            cursor.execute("DELETE FROM postacie WHERE id = ?", (postac_id,))
+            cursor.execute(f"DELETE FROM postacie WHERE id = {ph}", (postac_id,))
             
             conn.commit()
             return True
@@ -322,17 +335,18 @@ class Database:
         cursor = conn.cursor()
         
         try:
+            ph = self._placeholder()
             # Znajdź ID najstarszych zapisów do usunięcia
-            cursor.execute("""
+            cursor.execute(f"""
                 SELECT id FROM postacie
                 ORDER BY created_at DESC
-                LIMIT -1 OFFSET ?
+                LIMIT -1 OFFSET {ph}
             """, (limit,))
             
             stare_ids = [row[0] for row in cursor.fetchall()]
             
             if stare_ids:
-                placeholders = ','.join('?' * len(stare_ids))
+                placeholders = ','.join([ph] * len(stare_ids))
                 
                 # Usuń historię
                 cursor.execute(f"DELETE FROM historia WHERE postac_id IN ({placeholders})", stare_ids)
