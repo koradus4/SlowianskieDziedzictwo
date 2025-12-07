@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}Tworzenie Postaci - Słowiańskie Dziedzictwo{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+    <h2>🧙 Stwórz Swoją Postać</h2>
+    
+    <form id="character-form">
+        <!-- Imię -->
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 5px; color: #c9a227;">Imię bohatera:</label>
+            <input type="text" id="imie" name="imie" placeholder="Wprowadź imię..." required>
+        </div>
+        
+        <!-- Wybór Płci -->
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 10px; color: #c9a227;">Płeć:</label>
+            <div style="display: flex; gap: 15px;">
+                <label style="display: flex; align-items: center; padding: 12px 20px; background: rgba(0,0,0,0.3); border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: all 0.3s;" class="plec-option">
+                    <input type="radio" name="plec" value="mezczyzna" required style="margin-right: 10px; width: 18px; height: 18px;">
+                    <span style="color: #c9a227; font-size: 1.1em;">⚔️ Mężczyzna</span>
+                </label>
+                <label style="display: flex; align-items: center; padding: 12px 20px; background: rgba(0,0,0,0.3); border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: all 0.3s;" class="plec-option">
+                    <input type="radio" name="plec" value="kobieta" required style="margin-right: 10px; width: 18px; height: 18px;">
+                    <span style="color: #c9a227; font-size: 1.1em;">🗡️ Kobieta</span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Wybór Ludu -->
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 10px; color: #c9a227;">Wybierz plemię:</label>
+            <div id="ludy-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                {% for lud_id, lud in ludy.items() %}
+                <label class="lud-option" style="display: block; padding: 15px; background: rgba(0,0,0,0.3); border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                    <input type="radio" name="lud" value="{{ lud_id }}" style="display: none;">
+                    <strong style="color: #c9a227;">{{ lud.nazwa }}</strong>
+                    <p style="font-size: 0.85em; color: #8a8a8a; margin-top: 5px;">{{ lud.opis }}</p>
+                    <p style="font-size: 0.8em; color: #5a9a5a; margin-top: 5px;">{{ lud.umiejetnosc }}</p>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Wybór Klasy -->
+        <div style="margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 10px; color: #c9a227;">Wybierz klasę:</label>
+            <div id="klasy-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                {% for klasa_id, klasa in klasy.items() %}
+                <label class="klasa-option" style="display: block; padding: 15px; background: rgba(0,0,0,0.3); border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                    <input type="radio" name="klasa" value="{{ klasa_id }}" style="display: none;">
+                    <strong style="color: #c9a227;">{{ klasa.nazwa }}</strong>
+                    <p style="font-size: 0.85em; color: #8a8a8a; margin-top: 5px;">{{ klasa.opis }}</p>
+                    <p style="font-size: 0.8em; color: #5a5aa0; margin-top: 5px;">
+                        Umiejętności: {{ klasa.umiejetnosci | join(', ') }}
+                    </p>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Statystyki -->
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <label style="color: #c9a227;">Statystyki (2k6 każda):</label>
+                <button type="button" id="losuj-btn" class="btn btn-secondary" style="padding: 8px 20px; font-size: 0.9em;">
+                    🎲 Losuj statystyki
+                </button>
+            </div>
+            
+            <!-- Punkty bonusowe -->
+            <div id="bonus-panel" style="display: none; background: rgba(201,162,39,0.1); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #c9a227;">
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <span style="color: #c9a227; font-size: 1.1em;">✨ Punkty bonusowe do rozdania: </span>
+                    <span id="punkty-pozostale" style="color: #28a745; font-size: 1.5em; font-weight: bold;">10</span>
+                </div>
+                <p style="text-align: center; font-size: 0.85em; color: #8a8a8a; margin: 0;">Kliknij +/- aby rozdać punkty między statystyki</p>
+            </div>
+            
+            <div id="stats-container" class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-name">Siła</div>
+                    <div class="stat-value" id="stat-sila">-</div>
+                    <div class="stat-bonus" id="bonus-sila" style="display: none; margin-top: 8px;">
+                        <button type="button" class="stat-btn" onclick="zmienBonus('sila', -1)">−</button>
+                        <span id="bonus-sila-val" style="color: #c9a227; font-weight: bold;">+0</span>
+                        <button type="button" class="stat-btn" onclick="zmienBonus('sila', 1)">+</button>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-name">Zręczność</div>
+                    <div class="stat-value" id="stat-zrecznosc">-</div>
+                    <div class="stat-bonus" id="bonus-zrecznosc" style="display: none; margin-top: 8px;">
+                        <button type="button" class="stat-btn" onclick="zmienBonus('zrecznosc', -1)">−</button>
+                        <span id="bonus-zrecznosc-val" style="color: #c9a227; font-weight: bold;">+0</span>
+                        <button type="button" class="stat-btn" onclick="zmienBonus('zrecznosc', 1)">+</button>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-name">Wytrzymałość</div>
+                    <div class="stat-value" id="stat-wytrzymalosc">-</div>
+                    <div class="stat-bonus" id="bonus-wytrzymalosc" style="display: none; margin-top: 8px;">
+                        <button type="button" class="stat-btn" onclick="zmienBonus('wytrzymalosc', -1)">−</button>
+                        <span id="bonus-wytrzymalosc-val" style="color: #c9a227; font-weight: bold;">+0</span>
+                        <button type="button" class="stat-btn" onclick="zmienBonus('wytrzymalosc', 1)">+</button>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-name">Inteligencja</div>
+                    <div class="stat-value" id="stat-inteligencja">-</div>
+                    <div class="stat-bonus" id="bonus-inteligencja" style="display: none; margin-top: 8px;">
+                        <button type="button" class="stat-btn" onclick="zmienBonus('inteligencja', -1)">−</button>
+                        <span id="bonus-inteligencja-val" style="color: #c9a227; font-weight: bold;">+0</span>
+                        <button type="button" class="stat-btn" onclick="zmienBonus('inteligencja', 1)">+</button>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-name">Charyzma</div>
+                    <div class="stat-value" id="stat-charyzma">-</div>
+                    <div class="stat-bonus" id="bonus-charyzma" style="display: none; margin-top: 8px;">
+                        <button type="button" class="stat-btn" onclick="zmienBonus('charyzma', -1)">−</button>
+                        <span id="bonus-charyzma-val" style="color: #c9a227; font-weight: bold;">+0</span>
+                        <button type="button" class="stat-btn" onclick="zmienBonus('charyzma', 1)">+</button>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-name">Szczęście</div>
+                    <div class="stat-value" id="stat-szczescie">-</div>
+                    <div class="stat-bonus" id="bonus-szczescie" style="display: none; margin-top: 8px;">
+                        <button type="button" class="stat-btn" onclick="zmienBonus('szczescie', -1)">−</button>
+                        <span id="bonus-szczescie-val" style="color: #c9a227; font-weight: bold;">+0</span>
+                        <button type="button" class="stat-btn" onclick="zmienBonus('szczescie', 1)">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Przycisk Start -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button type="submit" class="btn" id="start-btn" disabled>
+                🗡️ Rozpocznij Przygodę
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let statystyki = null;
+    let bonusy = {sila: 0, zrecznosc: 0, wytrzymalosc: 0, inteligencja: 0, charyzma: 0, szczescie: 0};
+    let punktyPozostale = 10;
+    let wybranyLud = null;
+    let wybranaKlasa = null;
+    
+    function zmienBonus(stat, zmiana) {
+        const nowyBonus = bonusy[stat] + zmiana;
+        const nowePunkty = punktyPozostale - zmiana;
+        
+        // Walidacja
+        if (nowyBonus < 0 || nowePunkty < 0) return;
+        if (nowyBonus > 5) {  // Max +5 do jednej statystyki
+            alert('⚠️ Maksymalnie +5 do jednej statystyki!');
+            return;
+        }
+        
+        bonusy[stat] = nowyBonus;
+        punktyPozostale = nowePunkty;
+        
+        // Aktualizuj UI
+        document.getElementById(`bonus-${stat}-val`).textContent = `+${nowyBonus}`;
+        document.getElementById('punkty-pozostale').textContent = punktyPozostale;
+        document.getElementById('punkty-pozostale').style.color = punktyPozostale === 0 ? '#28a745' : '#ffc107';
+        
+        // Aktualizuj wartość statystyki
+        const bazowa = statystyki[stat];
+        document.getElementById(`stat-${stat}`).textContent = bazowa + nowyBonus;
+        
+        sprawdzFormularz();
+    }
+    
+    // Obsługa wyboru ludu
+    document.querySelectorAll('.lud-option').forEach(el => {
+        el.addEventListener('click', function() {
+            document.querySelectorAll('.lud-option').forEach(o => o.style.borderColor = 'transparent');
+            this.style.borderColor = '#c9a227';
+            wybranyLud = this.querySelector('input').value;
+            sprawdzFormularz();
+        });
+    });
+    
+    // Obsługa wyboru klasy
+    document.querySelectorAll('.klasa-option').forEach(el => {
+        el.addEventListener('click', function() {
+            document.querySelectorAll('.klasa-option').forEach(o => o.style.borderColor = 'transparent');
+            this.style.borderColor = '#c9a227';
+            wybranaKlasa = this.querySelector('input').value;
+            sprawdzFormularz();
+        });
+    });
+    
+    // Obsługa wyboru płci
+    document.querySelectorAll('.plec-option').forEach(el => {
+        el.addEventListener('click', function() {
+            document.querySelectorAll('.plec-option').forEach(o => o.style.borderColor = 'transparent');
+            this.style.borderColor = '#c9a227';
+            sprawdzFormularz();
+        });
+    });
+    
+    // Losowanie statystyk
+    document.getElementById('losuj-btn').addEventListener('click', async function() {
+        this.textContent = '🎲 Losuję...';
+        this.disabled = true;
+        
+        try {
+            const response = await fetch('/losuj_statystyki', { method: 'POST' });
+            const data = await response.json();
+            statystyki = data;
+            punktyPozostale = data.punkty_bonusowe || 10;
+            
+            // Resetuj bonusy
+            bonusy = {sila: 0, zrecznosc: 0, wytrzymalosc: 0, inteligencja: 0, charyzma: 0, szczescie: 0};
+            
+            // Pokaż bazowe wartości
+            document.getElementById('stat-sila').textContent = statystyki.sila;
+            document.getElementById('stat-zrecznosc').textContent = statystyki.zrecznosc;
+            document.getElementById('stat-wytrzymalosc').textContent = statystyki.wytrzymalosc;
+            document.getElementById('stat-inteligencja').textContent = statystyki.inteligencja;
+            document.getElementById('stat-charyzma').textContent = statystyki.charyzma;
+            document.getElementById('stat-szczescie').textContent = statystyki.szczescie;
+            
+            // Pokaż panel bonusowy i przyciski
+            document.getElementById('bonus-panel').style.display = 'block';
+            document.getElementById('punkty-pozostale').textContent = punktyPozostale;
+            document.querySelectorAll('.stat-bonus').forEach(el => el.style.display = 'flex');
+            document.querySelectorAll('.stat-bonus span').forEach(el => el.textContent = '+0');
+            
+            sprawdzFormularz();
+        } catch (e) {
+            alert('Błąd losowania!');
+        }
+        
+        this.textContent = '🎲 Losuj statystyki';
+        this.disabled = false;
+    });
+    
+    function sprawdzFormularz() {
+        const imie = document.getElementById('imie').value.trim();
+        const startBtn = document.getElementById('start-btn');
+        
+        if (imie && wybranyLud && wybranaKlasa && statystyki) {
+            startBtn.disabled = false;
+        } else {
+            startBtn.disabled = true;
+        }
+    }
+    
+    document.getElementById('imie').addEventListener('input', sprawdzFormularz);
+    
+    // Wysłanie formularza
+    document.getElementById('character-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Sprawdź płeć
+        const plec = document.querySelector('input[name="plec"]:checked');
+        if (!plec) {
+            alert('Wybierz płeć postaci!');
+            return;
+        }
+        
+        // Zastosuj bonusy do statystyk
+        const finalneStatystyki = {
+            sila: statystyki.sila + bonusy.sila,
+            zrecznosc: statystyki.zrecznosc + bonusy.zrecznosc,
+            wytrzymalosc: statystyki.wytrzymalosc + bonusy.wytrzymalosc,
+            inteligencja: statystyki.inteligencja + bonusy.inteligencja,
+            charyzma: statystyki.charyzma + bonusy.charyzma,
+            szczescie: statystyki.szczescie + bonusy.szczescie
+        };
+        
+        const imie = document.getElementById('imie').value.trim();
+        const startBtn = document.getElementById('start-btn');
+        
+        startBtn.textContent = '⏳ Tworzę postać...';
+        startBtn.disabled = true;
+        
+        try {
+            const response = await fetch('/stworz_postac', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    imie: imie,
+                    plec: plec.value,
+                    lud: wybranyLud,
+                    klasa: wybranaKlasa,
+                    statystyki: finalneStatystyki  // Używaj finalnych statystyk z bonusami!
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                window.location.href = '/gra';
+            } else {
+                alert('Błąd tworzenia postaci!');
+            }
+        } catch (e) {
+            alert('Błąd połączenia!');
+        }
+        
+        startBtn.textContent = '🗡️ Rozpocznij Przygodę';
+        startBtn.disabled = false;
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,905 @@
+{% extends "base.html" %}
+
+{% block title %}Gra - {{ postac.imie }} - Słowiańskie Dziedzictwo{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 300px 1fr 280px; gap: 20px;">
+    
+    <!-- Panel postaci (lewa kolumna) -->
+    <div>
+        <div class="card">
+            <h2>👤 {{ postac.imie }}</h2>
+            <p><strong>{{ postac.lud_nazwa }}</strong> • {{ postac.klasa_nazwa }}</p>
+            <p style="font-size: 0.9em; color: #8a8a8a;">Poziom {{ postac.poziom }}</p>
+            
+            <!-- HP Bar -->
+            <div style="margin: 15px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
+                    <span>❤️ HP</span>
+                    <span id="hp-display">{{ postac.hp }}/{{ postac.hp_max }}</span>
+                </div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="hp-bar" style="width: {{ (postac.hp / postac.hp_max * 100) | int }}%;"></div>
+                </div>
+            </div>
+            
+            <!-- Złoto -->
+            <div style="margin: 10px 0; padding: 8px; background: rgba(255, 215, 0, 0.1); border-radius: 8px; border: 1px solid rgba(255, 215, 0, 0.3);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 0.9em;">💰 Złoto</span>
+                    <span id="zloto-display" style="font-size: 1.1em; font-weight: bold; color: #ffd700;">{{ postac.zloto | default(50) }}</span>
+                </div>
+            </div>
+            
+            <!-- Ekwipunek ze stackowaniem -->
+            <div style="margin: 10px 0; padding: 8px; background: rgba(139, 69, 19, 0.1); border-radius: 8px; border: 1px solid rgba(139, 69, 19, 0.3);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <span style="font-size: 0.9em;">🎒 Ekwipunek</span>
+                    <span id="ladownosc-display" style="font-size: 0.8em; color: #888;">
+                        <span id="sloty-zajete">0</span>/<span id="sloty-max">10</span>
+                    </span>
+                </div>
+                <div id="ekwipunek-lista" style="font-size: 0.8em; max-height: 120px; overflow-y: auto;">
+                    {% if postac.ekwipunek and postac.ekwipunek | length > 0 %}
+                        {% set stackowane = {} %}
+                        {% for przedmiot in postac.ekwipunek %}
+                            {% if przedmiot in stackowane %}
+                                {% set _ = stackowane.update({przedmiot: stackowane[przedmiot] + 1}) %}
+                            {% else %}
+                                {% set _ = stackowane.update({przedmiot: 1}) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% for nazwa, ilosc in stackowane.items() %}
+                            <div style="padding: 2px 0;">• {{ nazwa }}{% if ilosc > 1 %} <span style="color: #888;">x{{ ilosc }}</span>{% endif %}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="color: #888; font-style: italic;">Pusty ekwipunek</div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Statystyki -->
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; font-size: 0.85em;">
+                <div>💪 Siła: {{ postac.statystyki.sila }}</div>
+                <div>🎯 Zręczność: {{ postac.statystyki.zrecznosc }}</div>
+                <div>🛡️ Wytrzymałość: {{ postac.statystyki.wytrzymalosc }}</div>
+                <div>📚 Inteligencja: {{ postac.statystyki.inteligencja }}</div>
+                <div>💬 Charyzma: {{ postac.statystyki.charyzma }}</div>
+                <div>🍀 Szczęście: {{ postac.statystyki.szczescie }}</div>
+            </div>
+            
+            <!-- Złoto -->
+            <div style="margin-top: 15px; font-size: 1.1em;">
+                💰 <strong id="zloto-display">{{ postac.zloto }}</strong> złotych monet
+            </div>
+        </div>
+        
+        <!-- Lokacja -->
+        <div class="card">
+            <h2>📍 Lokacja</h2>
+            <p id="lokacja-display" style="font-size: 1.2em; color: #c9a227;">{{ postac.lokacja | default('Gniezno') | capitalize }}</p>
+        </div>
+        
+        <!-- Towarzysze -->
+        <div class="card">
+            <h2>👥 Towarzysze <span style="font-size: 0.8em; color: #888;" id="towarzysze-count">(0/3)</span></h2>
+            <div id="towarzysze-container">
+                {% if postac.towarzysze and postac.towarzysze|length > 0 %}
+                    {% for t in postac.towarzysze %}
+                    <div class="companion-card" data-companion="{{ t.imie }}" style="background: rgba(70, 130, 180, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(70, 130, 180, 0.3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                            <strong style="font-size: 1em;">{{ t.imie }}</strong>
+                            <span style="font-size: 0.85em; color: #8a8a8a;">({{ t.klasa }})</span>
+                        </div>
+                        <div style="font-size: 0.85em; color: #8a8a8a; margin-bottom: 5px;">
+                            ❤️ HP: <span id="hp-{{ t.imie }}">{{ t.hp | default(25) }}</span>/{{ t.hp_max | default(25) }}
+                        </div>
+                        <div class="hp-bar" style="height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
+                            <div class="hp-fill" id="hp-bar-{{ t.imie }}" style="width: {{ ((t.hp | default(25)) / (t.hp_max | default(25)) * 100) | int }}%; height: 100%; background: linear-gradient(90deg, #dc3545, #28a745);"></div>
+                        </div>
+                        
+                        <!-- Ekwipunek towarzyszy (tooltip) -->
+                        <div style="position: relative;">
+                            <button class="btn" style="width: 100%; padding: 5px; font-size: 0.8em; background: rgba(139, 69, 19, 0.3); border: 1px solid rgba(139, 69, 19, 0.5);" onclick="pokazEkwipunekTowarzyszy('{{ t.imie }}')">
+                                🎒 Ekwipunek ({{ (t.ekwipunek | default([])) | length }})
+                            </button>
+                            <div id="ekwipunek-tooltip-{{ t.imie }}" class="ekwipunek-tooltip" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 5px; background: rgba(20, 20, 30, 0.95); padding: 10px; border-radius: 8px; border: 1px solid rgba(139, 69, 19, 0.5); z-index: 100; font-size: 0.8em;">
+                                {% if t.ekwipunek and t.ekwipunek|length > 0 %}
+                                    {% for przedmiot in t.ekwipunek[:3] %}
+                                    <div style="padding: 3px 0; display: flex; justify-content: space-between; align-items: center;">
+                                        <span>• {{ przedmiot }}</span>
+                                        <button class="btn" style="padding: 2px 6px; font-size: 0.75em; background: #28a745;" onclick="poprosOPrzedmiot('{{ t.imie }}', '{{ przedmiot }}')">📥 Poproś</button>
+                                    </div>
+                                    {% endfor %}
+                                    {% if t.ekwipunek|length > 3 %}
+                                    <div style="padding: 3px 0; color: #888; font-style: italic;">...i {{ t.ekwipunek|length - 3 }} więcej</div>
+                                    {% endif %}
+                                {% else %}
+                                    <div style="color: #888; font-style: italic;">Pusty ekwipunek</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: #8a8a8a; font-style: italic; font-size: 0.9em;">Jeszcze nikogo nie masz w drużynie...</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Quest -->
+        <div class="card">
+            <h2>📜 Aktywny Quest</h2>
+            <p id="quest-display" style="color: #5a9a5a;">Zjednoczenie Plemion</p>
+        </div>
+        
+        <!-- Przyciski akcji -->
+        <div class="card">
+            <button class="btn" style="width: 100%; margin-bottom: 10px; background: #28a745;" onclick="zapiszGre()">💾 Zapisz Grę</button>
+            <button class="btn" style="width: 100%; margin-bottom: 10px; background: #007bff;" onclick="pokazZapisy()">📂 Wczytaj Grę</button>
+            <button class="btn" style="width: 100%; background: #dc3545;" onclick="potwierdzNowaGre()">🔄 Nowa Gra</button>
+        </div>
+        
+        <!-- Modal z listą zapisów -->
+        <div id="zapisy-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; overflow-y: auto;">
+            <div style="max-width: 600px; margin: 50px auto; background: #1a1a2e; border-radius: 12px; padding: 20px;">
+                <h2>📂 Zapisane Gry</h2>
+                <div id="zapisy-lista" style="margin: 20px 0; max-height: 400px; overflow-y: auto;">
+                    <p style="color: #888;">Ładowanie...</p>
+                </div>
+                <button class="btn" style="background: #6c757d;" onclick="document.getElementById('zapisy-modal').style.display='none'">Anuluj</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel gry (środkowa kolumna) -->
+    <div>
+        <!-- Panel przygody -->
+        <div class="card">
+            <h2>📖 Przygoda</h2>
+            
+            <!-- Narracja -->
+            <div id="narrative-container">
+                <div class="narrative-box" id="narrative-text">
+                    <em>Przygoda zaraz się rozpocznie...</em>
+                </div>
+            </div>
+            
+            <!-- Audio player -->
+            <div id="audio-container" style="display: none; margin: 15px 0;">
+                <audio id="audio-player" controls style="width: 100%;"></audio>
+            </div>
+            
+            <!-- Loading -->
+            <div id="loading" class="loading"></div>
+            
+            <!-- Opcje akcji -->
+            <div id="options-container" style="margin: 20px 0; display: none;">
+                <p style="margin-bottom: 10px; color: #8a8a8a;">Propozycje działań:</p>
+                <div id="options-list" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+            </div>
+            
+            <!-- Input akcji -->
+            <div class="action-input">
+                <input type="text" id="akcja-input" placeholder="Co robisz? Opisz swoją akcję..." disabled>
+                <button id="akcja-btn" class="btn" style="padding: 12px 25px;" disabled>
+                    ➤ Wykonaj
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel prawy (Uczestnicy + Info) -->
+    <div>
+        <!-- Uczestnicy Akcji -->
+        <div class="card" style="margin-bottom: 20px;">
+            <h2>⚔️ Uczestnicy Akcji</h2>
+            <div id="uczestnicy-container">
+                <p style="color: #8a8a8a; font-style: italic; font-size: 0.9em;">Nikogo w pobliżu...</p>
+            </div>
+        </div>
+        
+        <!-- Szybkie Info -->
+        <div class="card">
+            <h2>📋 Szybkie Info</h2>
+            <div style="font-size: 0.85em; color: #8a8a8a; line-height: 1.6;">
+                <p><strong style="color: #c9a227;">Rok 966</strong> - Chrzest Polski</p>
+                <hr style="border: none; border-top: 1px solid rgba(201,162,39,0.2); margin: 10px 0;">
+                <p><strong style="color: #c9a227;">Legenda siły wrogów:</strong></p>
+                <p style="font-size: 0.8em;">⚔️⚔️⚔️ = słaby | ⚔️⚔️⚔️⚔️⚔️ = groźny | 💀 = śmiertelny</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function zapiszGre() {
+        fetch('/zapisz_gre', {method: 'POST'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    alert('✅ ' + (data.message || 'Gra zapisana pomyślnie!'));
+                } else {
+                    alert('❌ Błąd zapisu: ' + (data.error || 'Nieznany błąd'));
+                }
+            })
+            .catch(e => alert('❌ Błąd połączenia!'));
+    }
+    
+    async function pokazZapisy() {
+        const modal = document.getElementById('zapisy-modal');
+        const lista = document.getElementById('zapisy-lista');
+        
+        modal.style.display = 'block';
+        lista.innerHTML = '<p style="color: #888;">Ładowanie zapisów...</p>';
+        
+        try {
+            const response = await fetch('/lista_zapisow');
+            const data = await response.json();
+            
+            if (data.zapisy && data.zapisy.length > 0) {
+                lista.innerHTML = `
+                    <div style="color: #888; font-size: 0.9em; margin-bottom: 10px;">
+                        Zapisane gry: ${data.zapisy.length}/10
+                    </div>
+                ` + data.zapisy.map(zapis => `
+                    <div style="background: rgba(70, 130, 180, 0.1); padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid rgba(70, 130, 180, 0.3); display: flex; justify-content: space-between; align-items: center;">
+                        <div style="flex: 1; cursor: pointer;" 
+                             onmouseover="this.parentElement.style.background='rgba(70, 130, 180, 0.2)'" 
+                             onmouseout="this.parentElement.style.background='rgba(70, 130, 180, 0.1)'"
+                             onclick="wczytajZapis(${zapis.id})">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="font-size: 1.1em;">${zapis.imie}</strong>
+                                    <span style="color: #888; font-size: 0.9em;"> • ${zapis.lud} ${zapis.klasa}</span>
+                                </div>
+                                <span style="color: #888; font-size: 0.85em;">${new Date(zapis.data).toLocaleString('pl-PL')}</span>
+                            </div>
+                            <div style="margin-top: 5px; font-size: 0.9em; color: #aaa;">
+                                📍 ${zapis.lokacja} • ❤️ ${zapis.hp} HP • ⭐ Poziom ${zapis.poziom}
+                            </div>
+                        </div>
+                        <button onclick="event.stopPropagation(); usunZapis(${zapis.id})" 
+                                style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; margin-left: 10px; font-size: 1.1em;"
+                                onmouseover="this.style.background='#c82333'"
+                                onmouseout="this.style.background='#dc3545'">
+                            🗑️
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                lista.innerHTML = '<p style="color: #888; font-style: italic;">Brak zapisanych gier</p>';
+            }
+        } catch (e) {
+            lista.innerHTML = '<p style="color: #dc3545;">Błąd ładowania zapisów!</p>';
+        }
+    }
+    
+    async function usunZapis(id) {
+        if (!confirm('Na pewno usunąć ten zapis? Tego nie da się cofnąć!')) return;
+        
+        try {
+            const response = await fetch(`/usun_zapis/${id}`, { method: 'DELETE' });
+            const data = await response.json();
+            
+            if (data.ok) {
+                pokazZapisy(); // Odśwież listę
+            } else {
+                alert('Błąd usuwania zapisu!');
+            }
+        } catch (e) {
+            alert('Błąd połączenia!');
+        }
+    }
+    
+    async function wczytajZapis(id) {
+        if (!confirm('Wczytać ten zapis? Niezapisane zmiany zostaną utracone!')) return;
+        
+        try {
+            const response = await fetch(`/wczytaj_zapis/${id}`);
+            const data = await response.json();
+            
+            if (data.ok) {
+                window.location.href = data.redirect;
+            } else {
+                alert('❌ ' + (data.error || 'Błąd wczytywania'));
+            }
+        } catch (e) {
+            alert('❌ Błąd połączenia!');
+        }
+    }
+    
+    function potwierdzNowaGre() {
+        if (confirm('🔄 Rozpocząć NOWĄ grę?\n\nObecna postać i cała historia zostanie UTRACONA jeśli nie zapiszesz!')) {
+            window.location.href = '/nowa_gra';
+        }
+    }
+    
+    let czyGraRozpoczeta = false;
+    let aktualneHP = {{ postac.hp }};
+    let maxHP = {{ postac.hp_max }};
+    
+    // Sprawdź stan gry po załadowaniu strony
+    window.addEventListener('load', async function() {
+        // Sprawdź czy to przeładowanie (czy mamy już historię)
+        try {
+            const stanResponse = await fetch('/stan_gry');
+            const stan = await stanResponse.json();
+            
+            if (stan.gra_aktywna && stan.historia_dlugosc > 0) {
+                // Gra już trwa - nie resetuj, tylko aktywuj input
+                document.getElementById('narrative-text').innerHTML = '<em>Kontynuujesz przygodę... Wpisz co chcesz zrobić.</em>';
+                document.getElementById('lokacja-display').textContent = '{{ postac.lokacja | default("Gniezno") }}';
+                czyGraRozpoczeta = true;
+                document.getElementById('akcja-input').disabled = false;
+                document.getElementById('akcja-btn').disabled = false;
+                
+                // Załaduj towarzyszy jeśli są
+                if (stan.towarzysze && stan.towarzysze.length > 0) {
+                    aktualizujTowarzyszy(stan.towarzysze);
+                }
+                
+                // Pokaż domyślne opcje
+                pokazOpcje(['Rozejrzyj się', 'Idź dalej', 'Porozmawiaj z kimś']);
+            } else {
+                // Nowa gra - rozpocznij przygodę
+                await rozpocznijPrzygode();
+            }
+        } catch (e) {
+            // Fallback - rozpocznij przygodę
+            await rozpocznijPrzygode();
+        }
+    });
+    
+    function aktualizujTowarzyszy(towarzysze) {
+        const container = document.getElementById('towarzysze-container');
+        console.log('🔍 Towarzysze:', towarzysze);  // DEBUG
+        if (!towarzysze || towarzysze.length === 0) {
+            container.innerHTML = '<p style="color: #8a8a8a; font-style: italic;">Jeszcze nikogo nie masz w drużynie...</p>';
+            return;
+        }
+        
+        let html = '';
+        towarzysze.forEach(t => {
+            console.log('👥 Towarzysz:', t.imie, 'HP:', t.hp, 'HP_MAX:', t.hp_max);  // DEBUG
+            const hpPercent = (t.hp / t.hp_max * 100);
+            let barColor = 'linear-gradient(90deg, #dc3545, #28a745)';
+            if (hpPercent < 30) barColor = '#dc3545';
+            else if (hpPercent < 60) barColor = '#ffc107';
+            
+            html += `<div class="companion-card" data-companion="${t.imie}" style="margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 5px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <strong>${t.imie}</strong>
+                    <span style="font-size: 0.85em; color: #8a8a8a;">(${t.klasa})</span>
+                </div>
+                <div style="font-size: 0.85em; color: #8a8a8a; margin-bottom: 5px;">❤️ HP: <span id="hp-${t.imie}">${t.hp}</span>/${t.hp_max}</div>
+                <div class="hp-bar" style="height: 10px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden;">
+                    <div class="hp-fill" id="hp-bar-${t.imie}" style="width: ${hpPercent}%; height: 100%; background: ${barColor};"></div>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+    
+    function potwierdzReset() {
+        if (confirm('⚠️ Czy na pewno chcesz zacząć od nowa? Cała historia będzie utracona!')) {
+            window.location.href = '/nowa_gra';
+        }
+    }
+    
+    function aktualizujUczestnikow(uczestnicy) {
+        const container = document.getElementById('uczestnicy-container');
+        if (!uczestnicy || uczestnicy.length === 0) {
+            container.innerHTML = '<p style="color: #8a8a8a; font-style: italic; font-size: 0.9em;">Nikogo w pobliżu...</p>';
+            return;
+        }
+        
+        let html = '';
+        uczestnicy.forEach(u => {
+            const typ = u.typ || 'npc'; // 'wrog', 'bestia', 'npc'
+            let ikona = '👤';
+            let hpDisplay = '';
+            
+            if (typ === 'wrog') {
+                ikona = '⚔️';
+                // Zamazane HP - pokazuj symbole mieczy zamiast liczb
+                const sila = u.hp_max || 50;
+                let miecze = '';
+                if (sila < 30) miecze = '⚔️⚔️⚔️';
+                else if (sila < 60) miecze = '⚔️⚔️⚔️⚔️';
+                else if (sila < 100) miecze = '⚔️⚔️⚔️⚔️⚔️';
+                else miecze = '💀 GROŹNY';
+                hpDisplay = `<div style="font-size: 0.8em; color: #dc3545;">${miecze}</div>`;
+            } else if (typ === 'bestia') {
+                ikona = '🐺';
+                const sila = u.hp_max || 40;
+                let ocena = sila < 30 ? 'Słaba' : sila < 60 ? 'Średnia' : 'Niebezpieczna';
+                hpDisplay = `<div style="font-size: 0.8em; color: #ffc107;">Siła: ${ocena}</div>`;
+            } else {
+                // NPC - bez HP
+                hpDisplay = `<div style="font-size: 0.8em; color: #8a8a8a;">${u.zawod || 'Mieszkaniec'}</div>`;
+            }
+            
+            html += `<div style="margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 5px; border-left: 3px solid ${typ === 'wrog' ? '#dc3545' : typ === 'bestia' ? '#ffc107' : '#5a9a5a'};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 0.95em;"><strong>${ikona} ${u.imie || 'Nieznajomy'}</strong></div>
+                        ${hpDisplay}
+                    </div>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+    
+    function pokazOpcje(opcje) {
+        if (opcje && opcje.length > 0) {
+            const optionsContainer = document.getElementById('options-container');
+            const optionsList = document.getElementById('options-list');
+            
+            optionsList.innerHTML = '';
+            opcje.forEach(opcja => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-secondary';
+                btn.style.cssText = 'padding: 8px 15px; font-size: 0.9em;';
+                btn.textContent = opcja;
+                btn.addEventListener('click', () => wykonajAkcje(opcja));
+                optionsList.appendChild(btn);
+            });
+            
+            optionsContainer.style.display = 'block';
+        }
+    }
+    
+    async function rozpocznijPrzygode() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('narrative-text').innerHTML = '<em>Mistrz Gry przygotowuje przygodę...</em>';
+        
+        try {
+            const response = await fetch('/rozpocznij_przygode', { method: 'POST' });
+            
+            // Sprawdź status odpowiedzi
+            if (!response.ok) {
+                console.error('❌ HTTP Error:', response.status, response.statusText);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Otrzymano dane z /rozpocznij_przygode:', data);
+            
+            wyswietlOdpowiedz(data);
+            czyGraRozpoczeta = true;
+            
+            document.getElementById('akcja-input').disabled = false;
+            document.getElementById('akcja-btn').disabled = false;
+            
+        } catch (e) {
+            console.error('❌ Błąd w rozpocznijPrzygode():', e);
+            // Pokaż przyjazny komunikat z możliwością ponowienia
+            document.getElementById('narrative-text').innerHTML = `
+                <div style="padding:12px; border-radius:8px; background: rgba(220,53,69,0.1); border: 1px solid rgba(220,53,69,0.3); color:#dc3545;">
+                    <strong>⚠️ Nie udało się rozpocząć przygody</strong><br>
+                    <span style="font-size:0.9em;">${e.message || 'Błąd połączenia'}</span><br><br>
+                    <button class="btn" style="background:#dc3545; padding:8px 15px;" onclick="rozpocznijPrzygode()">🔄 Spróbuj ponownie</button>
+                </div>
+            `;
+        }
+        
+        document.getElementById('loading').style.display = 'none';
+    }
+    
+    function wyswietlOdpowiedz(data) {
+        // DEBUG: pokaż co przyszło z backendu
+        console.log('📦 Otrzymane dane:', data);
+        
+        // Narracja - wyciągnij tylko tekst narracji, usuń formatowanie Markdown
+        const narrativeBox = document.getElementById('narrative-text');
+        if (!narrativeBox) {
+            console.error('❌ Element narrative-text nie istnieje!');
+            return;
+        }
+        
+        // Preferowane pole 'tekst' - backend zwraca 'tekst' jako główny komunikat.
+        let narracja = '';
+        if (data && typeof data === 'object') {
+            narracja = data.tekst || data.narracja || '';
+        } else if (typeof data === 'string') {
+            narracja = data;
+        }
+        if (!narracja) narracja = 'Brak odpowiedzi...';
+        
+        console.log('📝 Narracja:', narracja.substring(0, 100) + '...');
+        
+        // Jeśli to JSON w stringu, spróbuj sparsować i wyciągnąć pole narracja
+        if (typeof narracja === 'string' && narracja.trim().startsWith('{')) {
+            try {
+                const parsed = JSON.parse(narracja);
+                narracja = parsed.narracja || narracja;
+            } catch (e) {
+                // Jeśli parsowanie nie działa, zostaw oryginalny tekst
+                console.log('⚠️ Nie można sparsować JSON z narracji');
+            }
+        }
+        
+        // Formatuj Markdown na HTML
+        narracja = narracja
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')  // **bold** -> <strong>
+            .replace(/\* \*\*(.+?):\*\*/g, '<br>• <strong>$1:</strong>')  // * **Tytuł:** -> lista
+            .replace(/\n\n/g, '<br><br>')  // podwójne entery
+            .replace(/\n/g, '<br>');  // pojedyncze entery
+        
+        narrativeBox.innerHTML = narracja;
+        
+        // Audio
+        if (data.audio) {
+            const audioContainer = document.getElementById('audio-container');
+            const audioPlayer = document.getElementById('audio-player');
+            if (audioContainer && audioPlayer) {
+                audioPlayer.src = data.audio;
+                audioContainer.style.display = 'block';
+                audioPlayer.play().catch(e => console.log('Autoplay zablokowany'));
+            }
+        }
+        
+        // Lokacja
+        if (data.lokacja) {
+            const lokacjaEl = document.getElementById('lokacja-display');
+            if (lokacjaEl) lokacjaEl.textContent = data.lokacja;
+        }
+        
+        // HP
+        if (data.hp_gracza !== undefined) {
+            const hpMax = {{ postac.hp_max }};
+            const hpDisplay = document.getElementById('hp-display');
+            const hpBar = document.getElementById('hp-bar');
+            if (hpDisplay) hpDisplay.textContent = data.hp_gracza + '/' + hpMax;
+            if (hpBar) hpBar.style.width = (data.hp_gracza / hpMax * 100) + '%';
+        }
+        
+        // Złoto
+        if (data.zloto !== undefined) {
+            const zlotoEl = document.getElementById('zloto-display');
+            if (zlotoEl) zlotoEl.textContent = data.zloto;
+        }
+        
+        // Ekwipunek
+        if (data.ekwipunek !== undefined) {
+            const ekwipunekLista = document.getElementById('ekwipunek-lista');
+            const ekwipunekCount = document.getElementById('ekwipunek-count');
+            
+            if (ekwipunekCount) ekwipunekCount.textContent = data.ekwipunek.length;
+            
+            if (ekwipunekLista) {
+                if (data.ekwipunek.length > 0) {
+                    ekwipunekLista.innerHTML = data.ekwipunek.map(item => 
+                        `<div style="padding: 2px 0;">• ${item}</div>`
+                    ).join('');
+                } else {
+                    ekwipunekLista.innerHTML = '<div style="color: #888; font-style: italic;">Brak przedmiotów</div>';
+                }
+            }
+        }
+        
+        // Towarzysze
+        if (data.towarzysze && data.towarzysze.length > 0) {
+            aktualizujTowarzyszy(data.towarzysze);
+        }
+        
+        // Quest
+        if (data.quest_aktywny) {
+            const questEl = document.getElementById('quest-display');
+            if (questEl) questEl.textContent = data.quest_aktywny;
+        }
+        
+        // Opcje
+        if (data.opcje && data.opcje.length > 0) {
+            const optionsContainer = document.getElementById('options-container');
+            const optionsList = document.getElementById('options-list');
+            
+            if (optionsList && optionsContainer) {
+                optionsList.innerHTML = '';
+                data.opcje.forEach(opcja => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-secondary';
+                    btn.style.cssText = 'padding: 8px 15px; font-size: 0.9em;';
+                    btn.textContent = opcja;
+                    btn.addEventListener('click', () => wykonajAkcje(opcja));
+                    optionsList.appendChild(btn);
+                });
+                
+                optionsContainer.style.display = 'block';
+            }
+        }
+    }
+    
+    async function wykonajAkcje(tekst) {
+        if (!tekst) {
+            tekst = document.getElementById('akcja-input').value.trim();
+        }
+        
+        if (!tekst) return;
+        
+        document.getElementById('akcja-input').value = '';
+        document.getElementById('akcja-input').disabled = true;
+        document.getElementById('akcja-btn').disabled = true;
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('options-container').style.display = 'none';
+        
+        // Dodaj akcję gracza do historii wizualnej
+        const narrativeBox = document.getElementById('narrative-text');
+        narrativeBox.innerHTML = `<p style="color: #5a9a5a; margin-bottom: 15px;">➤ <em>Ty: ${tekst}</em></p>
+                                  <p><em>Mistrz Gry przemyśla twój ruch...</em></p>`;
+        
+        try {
+            const response = await fetch('/akcja', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ akcja: tekst })
+            });
+            
+            const data = await response.json();
+            
+            // Użyj wyswietlOdpowiedz do wyświetlenia pełnej odpowiedzi (narracja, audio, HP, złoto, ekwipunek, opcje itp.)
+            wyswietlOdpowiedz(data);
+            
+            // Dodaj akcję gracza NAD naracją (prepend)
+            const narrativeBox = document.getElementById('narrative-text');
+            const currentContent = narrativeBox.innerHTML;
+            narrativeBox.innerHTML = `<p style="color: #5a9a5a; margin-bottom: 15px;">➤ <em>Ty: ${tekst}</em></p>` + currentContent;
+            
+            // wyswietlOdpowiedz już aktualizuje HP, złoto, ekwipunek, towarzyszy, lokację i opcje
+            // Poniższe duplikaty usunięte - funkcja wyswietlOdpowiedz robi to wszystko
+            
+            // Dodatkowe aktualizacje specyficzne dla akcji (jeśli potrzebne):
+            // AKTUALIZUJ HP - już w wyswietlOdpowiedz, ale zostawiam dla pewności
+            if (data.hp_gracza !== undefined) {
+                const hpMax = {{ postac.hp_max }};
+                document.getElementById('hp-display').textContent = data.hp_gracza + '/' + hpMax;
+                document.getElementById('hp-bar').style.width = (data.hp_gracza / hpMax * 100) + '%';
+                
+                // Zmień kolor paska HP gdy jest nisko
+                const hpBar = document.getElementById('hp-bar');
+                if (data.hp_gracza < hpMax * 0.3) {
+                    hpBar.style.background = '#dc3545'; // Czerwony gdy <30%
+                } else if (data.hp_gracza < hpMax * 0.6) {
+                    hpBar.style.background = '#ffc107'; // Żółty gdy <60%
+                } else {
+                    hpBar.style.background = 'linear-gradient(90deg, #dc3545, #28a745)';
+                }
+            }
+            
+            // AKTUALIZUJ ZŁOTO!
+            if (data.zloto !== undefined) {
+                document.getElementById('zloto-display').textContent = data.zloto;
+            }
+            
+            // AKTUALIZUJ EKWIPUNEK ZE STACKOWANIEM!
+            if (data.ekwipunek !== undefined) {
+                const ekwipunekLista = document.getElementById('ekwipunek-lista');
+                
+                // Oblicz ładowność
+                const ladownosc = data.ladownosc || {zajete: data.ekwipunek.length, max: 10};
+                document.getElementById('sloty-zajete').textContent = ladownosc.zajete;
+                document.getElementById('sloty-max').textContent = ladownosc.max;
+                
+                // Zmień kolor jeśli blisko limitu
+                const ladownoscDisplay = document.getElementById('ladownosc-display');
+                const procent = (ladownosc.zajete / ladownosc.max) * 100;
+                if (procent >= 90) {
+                    ladownoscDisplay.style.color = '#dc3545'; // Czerwony
+                } else if (procent >= 70) {
+                    ladownoscDisplay.style.color = '#ffc107'; // Żółty
+                } else {
+                    ladownoscDisplay.style.color = '#888'; // Szary
+                }
+                
+                // Stackuj przedmioty
+                if (data.ekwipunek.length > 0) {
+                    const stackowane = {};
+                    data.ekwipunek.forEach(item => {
+                        stackowane[item] = (stackowane[item] || 0) + 1;
+                    });
+                    
+                    ekwipunekLista.innerHTML = Object.entries(stackowane).map(([nazwa, ilosc]) => 
+                        `<div style="padding: 2px 0;">• ${nazwa}${ilosc > 1 ? ' <span style="color: #888;">x' + ilosc + '</span>' : ''}</div>`
+                    ).join('');
+                } else {
+                    ekwipunekLista.innerHTML = '<div style="color: #888; font-style: italic;">Pusty ekwipunek</div>';
+                }
+            }
+            
+            // Zaktualizuj towarzyszy
+            if (data.towarzysze && data.towarzysze.length > 0) {
+                aktualizujTowarzyszy(data.towarzysze);
+            }
+            
+            // Zaktualizuj uczestników akcji (wrogowie/NPC)
+            if (data.uczestnicy) {
+                aktualizujUczestnikow(data.uczestnicy);
+            }
+            
+            // Zaktualizuj resztę UI
+            if (data.audio) {
+                const audioContainer = document.getElementById('audio-container');
+                const audioPlayer = document.getElementById('audio-player');
+                audioPlayer.src = data.audio;
+                audioContainer.style.display = 'block';
+                audioPlayer.play().catch(e => console.log('Autoplay zablokowany'));
+            }
+            
+            if (data.lokacja) {
+                document.getElementById('lokacja-display').textContent = data.lokacja;
+            }
+            
+            // Zaktualizuj quest
+            if (data.quest_aktywny) {
+                document.getElementById('quest-display').textContent = data.quest_aktywny;
+            }
+            
+            if (data.opcje && data.opcje.length > 0) {
+                const optionsContainer = document.getElementById('options-container');
+                const optionsList = document.getElementById('options-list');
+                
+                optionsList.innerHTML = '';
+                data.opcje.forEach(opcja => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn btn-secondary';
+                    btn.style.cssText = 'padding: 8px 15px; font-size: 0.9em;';
+                    btn.textContent = opcja;
+                    btn.addEventListener('click', () => wykonajAkcje(opcja));
+                    optionsList.appendChild(btn);
+                });
+                
+                optionsContainer.style.display = 'block';
+            }
+            
+        } catch (e) {
+            console.error('❌ Błąd w wykonajAkcje():', e);
+            narrativeBox.innerHTML = `
+                <div style="padding:12px; border-radius:8px; background: rgba(220,53,69,0.1); border: 1px solid rgba(220,53,69,0.3); color:#dc3545;">
+                    <strong>⚠️ Błąd podczas wykonywania akcji</strong><br>
+                    <span style="font-size:0.9em;">${e.message || 'Błąd połączenia'}</span>
+                </div>
+            `;
+        }
+        
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('akcja-input').disabled = false;
+        document.getElementById('akcja-btn').disabled = false;
+        document.getElementById('akcja-input').focus();
+    }
+    
+    // Obsługa Enter w polu akcji
+    document.getElementById('akcja-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            wykonajAkcje();
+        }
+    });
+    
+    // Przycisk wykonaj
+    document.getElementById('akcja-btn').addEventListener('click', function() {
+        wykonajAkcje();
+    });
+    
+    // === FUNKCJE TOWARZYSZY ===
+    
+    function pokazEkwipunekTowarzyszy(imie) {
+        const tooltip = document.getElementById(`ekwipunek-tooltip-${imie}`);
+        // Toggle display
+        if (tooltip.style.display === 'none') {
+            // Ukryj wszystkie inne tooltips
+            document.querySelectorAll('.ekwipunek-tooltip').forEach(t => t.style.display = 'none');
+            tooltip.style.display = 'block';
+        } else {
+            tooltip.style.display = 'none';
+        }
+    }
+    
+    async function poprosOPrzedmiot(towarzyszImie, przedmiot) {
+        try {
+            const response = await fetch('/wymien_przedmiot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    typ: 'popros',
+                    towarzysz_imie: towarzyszImie,
+                    przedmiot: przedmiot
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.sukces) {
+                // Zaktualizuj UI
+                if (data.ekwipunek) {
+                    aktualizujEkwipunek(data.ekwipunek);
+                }
+                if (data.towarzysze) {
+                    aktualizujTowarzyszy(data.towarzysze);
+                }
+                // Pokaż komunikat
+                const narrativeBox = document.getElementById('narrative-text');
+                narrativeBox.innerHTML += `<p style="color: #28a745; margin-top: 10px;">${data.komunikat}</p>`;
+            } else {
+                // Pokaż błąd
+                const narrativeBox = document.getElementById('narrative-text');
+                narrativeBox.innerHTML += `<p style="color: #dc3545; margin-top: 10px;">${data.komunikat}</p>`;
+            }
+            
+            // Ukryj tooltip
+            document.getElementById(`ekwipunek-tooltip-${towarzyszImie}`).style.display = 'none';
+            
+        } catch (e) {
+            console.error('Błąd wymiany:', e);
+            alert('Błąd połączenia!');
+        }
+    }
+    
+    function aktualizujEkwipunek(ekwipunek) {
+        const ekwipunekLista = document.getElementById('ekwipunek-lista');
+        if (ekwipunek && ekwipunek.length > 0) {
+            // Stackowanie
+            const stackowane = {};
+            ekwipunek.forEach(item => {
+                stackowane[item] = (stackowane[item] || 0) + 1;
+            });
+            ekwipunekLista.innerHTML = Object.entries(stackowane).map(([nazwa, ilosc]) => 
+                `<div style="padding: 2px 0;">• ${nazwa}${ilosc > 1 ? ' <span style="color: #888;">x' + ilosc + '</span>' : ''}</div>`
+            ).join('');
+        } else {
+            ekwipunekLista.innerHTML = '<div style="color: #888; font-style: italic;">Pusty ekwipunek</div>';
+        }
+    }
+    
+    function aktualizujTowarzyszy(towarzysze) {
+        const container = document.getElementById('towarzysze-container');
+        const countDisplay = document.getElementById('towarzysze-count');
+        
+        if (countDisplay) {
+            countDisplay.textContent = `(${towarzysze.length}/3)`;
+        }
+        
+        if (!towarzysze || towarzysze.length === 0) {
+            container.innerHTML = '<p style="color: #8a8a8a; font-style: italic; font-size: 0.9em;">Jeszcze nikogo nie masz w drużynie...</p>';
+            return;
+        }
+        
+        container.innerHTML = towarzysze.map(t => {
+            const hpPercent = Math.round((t.hp / t.hp_max) * 100);
+            const ekwipunekHtml = t.ekwipunek && t.ekwipunek.length > 0 
+                ? t.ekwipunek.slice(0, 3).map(przedmiot => 
+                    `<div style="padding: 3px 0; display: flex; justify-content: space-between; align-items: center;">
+                        <span>• ${przedmiot}</span>
+                        <button class="btn" style="padding: 2px 6px; font-size: 0.75em; background: #28a745;" onclick="poprosOPrzedmiot('${t.imie}', '${przedmiot}')">📥 Poproś</button>
+                    </div>`
+                ).join('') + (t.ekwipunek.length > 3 ? `<div style="padding: 3px 0; color: #888; font-style: italic;">...i ${t.ekwipunek.length - 3} więcej</div>` : '')
+                : '<div style="color: #888; font-style: italic;">Pusty ekwipunek</div>';
+            
+            return `
+                <div class="companion-card" data-companion="${t.imie}" style="background: rgba(70, 130, 180, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(70, 130, 180, 0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <strong style="font-size: 1em;">${t.imie}</strong>
+                        <span style="font-size: 0.85em; color: #8a8a8a;">(${t.klasa})</span>
+                    </div>
+                    <div style="font-size: 0.85em; color: #8a8a8a; margin-bottom: 5px;">
+                        ❤️ HP: <span id="hp-${t.imie}">${t.hp}</span>/${t.hp_max}
+                    </div>
+                    <div class="hp-bar" style="height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
+                        <div class="hp-fill" id="hp-bar-${t.imie}" style="width: ${hpPercent}%; height: 100%; background: linear-gradient(90deg, #dc3545, #28a745);"></div>
+                    </div>
+                    <div style="position: relative;">
+                        <button class="btn" style="width: 100%; padding: 5px; font-size: 0.8em; background: rgba(139, 69, 19, 0.3); border: 1px solid rgba(139, 69, 19, 0.5);" onclick="pokazEkwipunekTowarzyszy('${t.imie}')">
+                            🎒 Ekwipunek (${t.ekwipunek ? t.ekwipunek.length : 0})
+                        </button>
+                        <div id="ekwipunek-tooltip-${t.imie}" class="ekwipunek-tooltip" style="display: none; position: absolute; top: 100%; left: 0; right: 0; margin-top: 5px; background: rgba(20, 20, 30, 0.95); padding: 10px; border-radius: 8px; border: 1px solid rgba(139, 69, 19, 0.5); z-index: 100; font-size: 0.8em;">
+                            ${ekwipunekHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+</script>
+{% endblock %}

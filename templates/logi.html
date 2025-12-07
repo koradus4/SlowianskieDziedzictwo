@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Panel Logów - Słowiańskie Dziedzictwo{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>📊 Panel Logów i Diagnostyki</h2>
+    
+    <!-- Statystyki -->
+    <div id="stats-panel" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+        <div class="stat-box">
+            <div class="stat-name">Akcje gracza</div>
+            <div class="stat-value" id="stat-akcje">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-name">Odpowiedzi MG</div>
+            <div class="stat-value" id="stat-odpowiedzi">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-name">TTS sukces</div>
+            <div class="stat-value" id="stat-tts">0</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-name">Błędy</div>
+            <div class="stat-value" id="stat-bledy" style="color: #dc3545;">0</div>
+        </div>
+    </div>
+    
+    <!-- Przyciski -->
+    <div style="margin-bottom: 20px;">
+        <button class="btn btn-secondary" onclick="odswiezLogi()" style="padding: 10px 20px;">🔄 Odśwież</button>
+        <button class="btn btn-secondary" onclick="przełączAutoOdswiezanie()" id="btn-auto" style="padding: 10px 20px;">▶️ Auto-odświeżanie</button>
+        <button class="btn btn-secondary" onclick="pokazPlikLog()" style="padding: 10px 20px;">📄 Plik game.log</button>
+        <a href="/" class="btn btn-secondary" style="padding: 10px 20px; text-decoration: none;">🎮 Powrót do gry</a>
+    </div>
+    
+    <!-- Logi sesji -->
+    <div id="logi-sesja" style="max-height: 500px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 15px;">
+        <p style="color: #8a8a8a;">Ładowanie logów...</p>
+    </div>
+</div>
+
+<!-- Modal dla pliku log -->
+<div id="modal-plik" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; padding: 50px;">
+    <div style="background: #1a1a2e; border: 1px solid #c9a227; border-radius: 10px; max-width: 900px; margin: 0 auto; height: 80vh; display: flex; flex-direction: column;">
+        <div style="padding: 15px; border-bottom: 1px solid #c9a227; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; color: #c9a227;">📄 game.log</h3>
+            <button onclick="zamknijModal()" style="background: none; border: none; color: #e8e8e8; font-size: 1.5em; cursor: pointer;">✕</button>
+        </div>
+        <pre id="modal-content" style="flex: 1; overflow: auto; padding: 15px; margin: 0; font-size: 0.85em; color: #aaa;"></pre>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let autoOdswiezanie = false;
+    let intervalId = null;
+    
+    async function odswiezLogi() {
+        try {
+            const response = await fetch('/api/logi?ile=50');
+            const data = await response.json();
+            
+            // Aktualizuj statystyki
+            if (data.statystyki) {
+                document.getElementById('stat-akcje').textContent = data.statystyki.akcje_gracza || 0;
+                document.getElementById('stat-odpowiedzi').textContent = data.statystyki.odpowiedzi_mg || 0;
+                document.getElementById('stat-tts').textContent = data.statystyki.tts_sukcesy || 0;
+                document.getElementById('stat-bledy').textContent = data.statystyki.bledy || 0;
+            }
+            
+            // Wyświetl logi
+            const logiDiv = document.getElementById('logi-sesja');
+            if (data.logi && data.logi.length > 0) {
+                let html = '';
+                data.logi.forEach(log => {
+                    const kolor = getKolorLogu(log.typ);
+                    const ikona = getIkonaLogu(log.typ);
+                    const czas = new Date(log.czas).toLocaleTimeString('pl-PL');
+                    
+                    html += `<div style="margin: 8px 0; padding: 10px; background: rgba(0,0,0,0.3); border-left: 3px solid ${kolor}; border-radius: 4px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="color: ${kolor}; font-weight: bold;">${ikona} ${log.typ}</span>
+                            <span style="color: #666; font-size: 0.85em;">${czas}</span>
+                        </div>
+                        <div style="font-size: 0.9em; color: #bbb;">
+                            ${formatujDane(log.dane)}
+                        </div>
+                    </div>`;
+                });
+                logiDiv.innerHTML = html;
+                logiDiv.scrollTop = logiDiv.scrollHeight;
+            } else {
+                logiDiv.innerHTML = '<p style="color: #8a8a8a; text-align: center;">Brak logów. Rozpocznij grę, aby zobaczyć aktywność.</p>';
+            }
+        } catch (e) {
+            console.error('Błąd ładowania logów:', e);
+        }
+    }
+    
+    function getKolorLogu(typ) {
+        const kolory = {
+            'POSTAC_UTWORZONA': '#28a745',
+            'AKCJA_GRACZA': '#17a2b8',
+            'ODPOWIEDZ_MG': '#c9a227',
+            'TTS_SYNTEZA': '#6f42c1',
+            'BLAD': '#dc3545'
+        };
+        return kolory[typ] || '#888';
+    }
+    
+    function getIkonaLogu(typ) {
+        const ikony = {
+            'POSTAC_UTWORZONA': '🎭',
+            'AKCJA_GRACZA': '🎮',
+            'ODPOWIEDZ_MG': '🧙',
+            'TTS_SYNTEZA': '🔊',
+            'BLAD': '❌'
+        };
+        return ikony[typ] || '📋';
+    }
+    
+    function formatujDane(dane) {
+        if (!dane) return '';
+        
+        let html = '';
+        for (const [klucz, wartosc] of Object.entries(dane)) {
+            if (wartosc !== null && wartosc !== undefined) {
+                let wyswietl = wartosc;
+                if (typeof wartosc === 'string' && wartosc.length > 100) {
+                    wyswietl = wartosc.substring(0, 100) + '...';
+                }
+                if (Array.isArray(wartosc)) {
+                    wyswietl = wartosc.join(', ');
+                }
+                if (typeof wartosc === 'object' && !Array.isArray(wartosc)) {
+                    wyswietl = JSON.stringify(wartosc);
+                }
+                html += `<span style="color: #666;">${klucz}:</span> ${wyswietl}<br>`;
+            }
+        }
+        return html;
+    }
+    
+    function przełączAutoOdswiezanie() {
+        autoOdswiezanie = !autoOdswiezanie;
+        const btn = document.getElementById('btn-auto');
+        
+        if (autoOdswiezanie) {
+            btn.textContent = '⏸️ Stop auto';
+            btn.style.background = 'linear-gradient(180deg, #28a745 0%, #1e7e34 100%)';
+            intervalId = setInterval(odswiezLogi, 3000);
+        } else {
+            btn.textContent = '▶️ Auto-odświeżanie';
+            btn.style.background = '';
+            if (intervalId) clearInterval(intervalId);
+        }
+    }
+    
+    async function pokazPlikLog() {
+        try {
+            const response = await fetch('/api/logi/plik');
+            const data = await response.json();
+            
+            document.getElementById('modal-content').textContent = data.logi.join('');
+            document.getElementById('modal-plik').style.display = 'block';
+        } catch (e) {
+            alert('Błąd ładowania pliku logów');
+        }
+    }
+    
+    function zamknijModal() {
+        document.getElementById('modal-plik').style.display = 'none';
+    }
+    
+    // Zamknij modal klawiszem Escape
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') zamknijModal();
+    });
+    
+    // Załaduj logi przy starcie
+    odswiezLogi();
+</script>
+{% endblock %}

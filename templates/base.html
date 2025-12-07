@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Słowiańskie Dziedzictwo{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e8e8e8;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid #c9a227;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            color: #c9a227;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+        }
+        
+        h1::before, h1::after {
+            content: "⚔️";
+            margin: 0 15px;
+        }
+        
+        .subtitle {
+            color: #8a8a8a;
+            font-style: italic;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 40px;
+            font-size: 1.2em;
+            background: linear-gradient(180deg, #c9a227 0%, #8b6914 100%);
+            color: #1a1a2e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-shadow: none;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(201, 162, 39, 0.5);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(180deg, #4a4a5a 0%, #2a2a3a 100%);
+            color: #e8e8e8;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(201, 162, 39, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card h2 {
+            color: #c9a227;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(201, 162, 39, 0.3);
+            padding-bottom: 10px;
+        }
+        
+        input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            font-size: 1em;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(201, 162, 39, 0.3);
+            border-radius: 5px;
+            color: #e8e8e8;
+            margin-bottom: 10px;
+        }
+        
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: #c9a227;
+            box-shadow: 0 0 10px rgba(201, 162, 39, 0.3);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .stat-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        
+        .stat-name {
+            font-size: 0.9em;
+            color: #8a8a8a;
+        }
+        
+        .stat-value {
+            font-size: 1.8em;
+            color: #c9a227;
+            font-weight: bold;
+        }
+        
+        .hp-bar {
+            height: 25px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #dc3545, #28a745);
+            transition: width 0.3s ease;
+        }
+        
+        .companion-card {
+            margin: 8px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid rgba(201, 162, 39, 0.2);
+        }
+        
+        .companion-card strong {
+            color: #c9a227;
+        }
+        
+        .narrative-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-left: 4px solid #c9a227;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+        
+        .action-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .action-input input {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading::after {
+            content: "⏳ Mistrz Gry przemyśla...";
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .stat-bonus {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .stat-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: rgba(201, 162, 39, 0.3);
+            color: #c9a227;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .stat-btn:hover {
+            background: #c9a227;
+            color: #1a1a2e;
+            transform: scale(1.1);
+        }
+        
+        .stat-btn:active {
+            transform: scale(0.95);
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #5a5a5a;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Słowiańskie Dziedzictwo</h1>
+        <p class="subtitle">Gra Fabularna • Zjednocz Plemiona • Stwórz Polskę</p>
+    </header>
+    
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <footer>
+        <p>🏰 Słowiańskie Dziedzictwo © 2025 • Powered by Gemini AI & Piper TTS</p>
+    </footer>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>
