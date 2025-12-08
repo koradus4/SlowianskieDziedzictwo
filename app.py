@@ -498,31 +498,39 @@ def stan_gry():
 @app.route('/ostatnia_narracja')
 def ostatnia_narracja():
     """Zwraca ostatnią narrację z historii do wyświetlenia po F5"""
-    historia = session.get('historia', [])
-    postac = session.get('postac', {})
-    
-    if not historia:
+    try:
+        historia = session.get('historia', [])
+        postac = session.get('postac', {})
+        
+        if not historia:
+            return jsonify({
+                'narracja': None,
+                'opcje': ['Rozejrzyj się', 'Idź dalej', 'Porozmawiaj z kimś']
+            })
+        
+        # Znajdź ostatnią narrację narratora (pomijając akcje gracza)
+        ostatnia = None
+        for wpis in reversed(historia):
+            if isinstance(wpis, dict) and wpis.get('typ') == 'narrator':
+                ostatnia = wpis.get('tekst', '')
+                break
+        
+        return jsonify({
+            'narracja': ostatnia,
+            'opcje': ['Rozejrzyj się', 'Idź dalej', 'Kontynuuj'],
+            'hp_gracza': postac.get('hp'),
+            'zloto': postac.get('zloto'),
+            'ekwipunek': postac.get('ekwipunek', []),
+            'towarzysze': postac.get('towarzysze', []),
+            'lokacja': postac.get('lokacja')
+        })
+    except Exception as e:
+        logger.error(f"❌ Błąd w /ostatnia_narracja: {e}")
+        # Fallback - zwróć pustą odpowiedź
         return jsonify({
             'narracja': None,
             'opcje': ['Rozejrzyj się', 'Idź dalej', 'Porozmawiaj z kimś']
         })
-    
-    # Znajdź ostatnią narrację narratora (pomijając akcje gracza)
-    ostatnia = None
-    for wpis in reversed(historia):
-        if wpis.get('typ') == 'narrator':
-            ostatnia = wpis.get('tekst', '')
-            break
-    
-    return jsonify({
-        'narracja': ostatnia,
-        'opcje': ['Rozejrzyj się', 'Idź dalej', 'Kontynuuj'],
-        'hp_gracza': postac.get('hp'),
-        'zloto': postac.get('zloto'),
-        'ekwipunek': postac.get('ekwipunek', []),
-        'towarzysze': postac.get('towarzysze', []),
-        'lokacja': postac.get('lokacja')
-    })
 
 
 @app.route('/zapisz_gre', methods=['POST'])
