@@ -1,0 +1,22 @@
+steps:
+  # 1. Budowanie obrazu Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/slowianskiedziedzictwo:latest', '.']
+  
+  # 2. Wypychanie obrazu do rejestru
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/slowianskiedziedzictwo:latest']
+  
+  # 3. Wdrażanie do Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'slowianskiedziedzictwo'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/slowianskiedziedzictwo:latest'
+      - '--region'
+      - 'europe-central2'
+images:
+  - 'gcr.io/$PROJECT_ID/slowianskiedziedzictwo:latest'
