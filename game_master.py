@@ -137,6 +137,10 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         
         przedmioty_info = f"\n\nDostępne przedmioty w grze: {lista_przedmiotow}" if lista_przedmiotow else ""
         
+        # Ekwipunek gracza
+        ekwipunek = postac.get('ekwipunek', [])
+        ekwipunek_info = f"\n- Ekwipunek gracza: {', '.join(ekwipunek)}" if ekwipunek else "\n- Ekwipunek gracza: pusty"
+        
         prompt = f"""NOWA GRA!
 
 Gracz stworzył postać:
@@ -144,7 +148,7 @@ Gracz stworzył postać:
 - Plemię: {postac.get('plemie', 'Polanie')}
 - Klasa: {postac.get('klasa', 'Wojownik-Rycerz')}
 - HP startowe: {self.aktualne_hp}/{self.hp_max}
-- Złoto startowe: 50{przedmioty_info}
+- Złoto startowe: {postac.get('zloto', 50)}{ekwipunek_info}{przedmioty_info}
 
 Rozpocznij przygodę w Gnieźnie. Przedstaw:
 1. Krótki opis postaci i jej początków
@@ -224,10 +228,18 @@ Pamiętaj o formacie JSON!"""
             aktualne_hp = stan_gracza.get('hp', 100)
             hp_max = stan_gracza.get('hp_max', 100)
             zloto = stan_gracza.get('zloto', 0)
+            ekwipunek = stan_gracza.get('ekwipunek', [])
             towarzysze = stan_gracza.get('towarzysze', [])
             liczba_towarzyszy = len(towarzysze)
             
             przedmioty_tekst = f"\n\nDOSTĘPNE PRZEDMIOTY W GRZE: {lista_przedmiotow}" if lista_przedmiotow else ""
+            
+            # Ekwipunek gracza
+            ekwipunek_info = ""
+            if ekwipunek:
+                ekwipunek_info = f"\n- Ekwipunek gracza: {', '.join(ekwipunek)}"
+            else:
+                ekwipunek_info = "\n- Ekwipunek gracza: pusty"
             
             towarzysze_info = ""
             if towarzysze:
@@ -240,7 +252,7 @@ Pamiętaj o formacie JSON!"""
 AKTUALNY STAN GRACZA:
 - HP: {aktualne_hp}/{hp_max}
 - Lokacja: {stan_gracza.get('lokacja', 'nieznana')}
-- Złoto: {zloto} 💰{towarzysze_info}{przedmioty_tekst}
+- Złoto: {zloto} 💰{ekwipunek_info}{towarzysze_info}{przedmioty_tekst}
 
 WAŻNE: Aktualne HP gracza to {aktualne_hp}. Modyfikuj tę wartość w odpowiedzi (nie resetuj do 100!).
 Jeśli gracz otrzymuje obrażenia, odejmij od {aktualne_hp}.

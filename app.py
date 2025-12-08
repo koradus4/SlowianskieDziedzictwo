@@ -612,7 +612,9 @@ def rozpocznij_przygode():
             'plemie': postac.get('lud_nazwa'),
             'klasa': postac.get('klasa_nazwa'),
             'hp': hp,
-            'hp_max': hp_max
+            'hp_max': hp_max,
+            'zloto': postac.get('zloto', 50),
+            'ekwipunek': postac.get('ekwipunek', [])
         }, lista_przedmiotow=lista_przedmiotow)
     except Exception as e:
         # Loguj i zwróć przyjazny komunikat zamiast 500
@@ -783,6 +785,7 @@ def akcja():
         'hp_max': postac.get('hp_max', 100),
         'lokacja': postac.get('lokacja', 'gniezno'),
         'zloto': postac.get('zloto', 0),
+        'ekwipunek': postac.get('ekwipunek', []),
         'towarzysze': postac.get('towarzysze', [])
     }
     
