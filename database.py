@@ -209,6 +209,7 @@ class Database:
     
     def aktualizuj_postac(self, postac_id: int, dane: dict):
         """Aktualizuje dane postaci"""
+        print(f"🔧 aktualizuj_postac: postac_id={postac_id}, dane={dane}")
         conn = self._polacz()
         cursor = conn.cursor()
         
@@ -224,13 +225,17 @@ class Database:
                 ustawienia.append(f"{klucz} = {ph}")
                 wartosci.append(json.dumps(wartosc))
         
+        print(f"🔧 ustawienia={ustawienia}, wartosci={wartosci}")
+        
         if ustawienia:
             wartosci.append(postac_id)
-            cursor.execute(
-                f"UPDATE postacie SET {', '.join(ustawienia)} WHERE id = {ph}",
-                wartosci
-            )
+            zapytanie = f"UPDATE postacie SET {', '.join(ustawienia)} WHERE id = {ph}"
+            print(f"🔧 SQL: {zapytanie}")
+            cursor.execute(zapytanie, wartosci)
+            print(f"🔧 Zaktualizowano {cursor.rowcount} wierszy")
             conn.commit()
+        else:
+            print(f"❌ BRAK USTAWIEŃ - nic nie zapisano!")
         
         conn.close()
     
