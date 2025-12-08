@@ -317,6 +317,8 @@ Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczb�
     
     def _parsuj_json(self, tekst: str) -> dict:
         """Parsuje JSON z odpowiedzi modelu"""
+        import re
+        
         # Szukaj JSON w odpowiedzi
         tekst = tekst.strip()
         
@@ -326,9 +328,23 @@ Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczb�
         elif "```" in tekst:
             tekst = tekst.split("```")[1].split("```")[0]
         
+        # Usuń gwiazdki markdown (** lub *)
+        tekst = re.sub(r'\*\*', '', tekst)
+        tekst = re.sub(r'^\*\s*', '', tekst, flags=re.MULTILINE)
+        
+        # Znajdź JSON między { }
+        start = tekst.find('{')
+        end = tekst.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            tekst = tekst[start:end+1].strip()
+        
         try:
-            return json.loads(tekst)
-        except json.JSONDecodeError:
+            wynik = json.loads(tekst)
+            self.logger.info(f"✅ Parsowanie JSON OK, lokacja: {wynik.get('lokacja', 'brak')}")
+            return wynik
+        except json.JSONDecodeError as e:
+            self.logger.error(f"❌ Błąd parsowania JSON: {e}")
+            self.logger.error(f"📄 Surowy tekst (pierwsze 500 znaków): {tekst[:500]}")
             # Fallback - zwróć jako narrację
             return {
                 "narracja": tekst,
