@@ -329,9 +329,28 @@
             const stan = await stanResponse.json();
             
             if (stan.gra_aktywna && stan.historia_dlugosc > 0) {
-                // Gra już trwa - nie resetuj, tylko aktywuj input
-                document.getElementById('narrative-text').innerHTML = '<em>Kontynuujesz przygodę... Wpisz co chcesz zrobić.</em>';
-                document.getElementById('lokacja-display').textContent = '{{ postac.lokacja | default("Gniezno") }}';
+                // Gra już trwa - wczytaj ostatnią narrację
+                const narrResponse = await fetch('/ostatnia_narracja');
+                const narrData = await narrResponse.json();
+                
+                if (narrData.narracja) {
+                    // Wyświetl ostatnią narrację
+                    wyswietlOdpowiedz({
+                        tekst: narrData.narracja,
+                        opcje: narrData.opcje || ['Rozejrzyj się', 'Idź dalej', 'Kontynuuj'],
+                        hp_gracza: narrData.hp_gracza,
+                        zloto: narrData.zloto,
+                        ekwipunek: narrData.ekwipunek,
+                        towarzysze: narrData.towarzysze,
+                        lokacja: narrData.lokacja
+                    });
+                } else {
+                    // Fallback - brak narracji w historii
+                    document.getElementById('narrative-text').innerHTML = '<em>Kontynuujesz przygodę... Wpisz co chcesz zrobić.</em>';
+                    pokazOpcje(['Rozejrzyj się', 'Idź dalej', 'Kontynuuj']);
+                }
+                
+                // Aktywuj input
                 czyGraRozpoczeta = true;
                 document.getElementById('akcja-input').disabled = false;
                 document.getElementById('akcja-btn').disabled = false;
@@ -340,14 +359,12 @@
                 if (stan.towarzysze && stan.towarzysze.length > 0) {
                     aktualizujTowarzyszy(stan.towarzysze);
                 }
-                
-                // Pokaż domyślne opcje
-                pokazOpcje(['Rozejrzyj się', 'Idź dalej', 'Porozmawiaj z kimś']);
             } else {
                 // Nowa gra - rozpocznij przygodę
                 await rozpocznijPrzygode();
             }
         } catch (e) {
+            console.error('❌ Błąd ładowania stanu gry:', e);
             // Fallback - rozpocznij przygodę
             await rozpocznijPrzygode();
         }
