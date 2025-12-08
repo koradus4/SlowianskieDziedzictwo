@@ -344,21 +344,26 @@
                         towarzysze: narrData.towarzysze,
                         lokacja: narrData.lokacja
                     });
+                    
+                    // Załaduj towarzyszy z ostatniej narracji (nie ze stanu sesji!)
+                    if (narrData.towarzysze && narrData.towarzysze.length > 0) {
+                        aktualizujTowarzyszy(narrData.towarzysze);
+                    }
                 } else {
                     // Fallback - brak narracji w historii
                     document.getElementById('narrative-text').innerHTML = '<em>Kontynuujesz przygodę... Wpisz co chcesz zrobić.</em>';
                     pokazOpcje(['Rozejrzyj się', 'Idź dalej', 'Kontynuuj']);
+                    
+                    // Załaduj towarzyszy ze stanu sesji jako fallback
+                    if (stan.towarzysze && stan.towarzysze.length > 0) {
+                        aktualizujTowarzyszy(stan.towarzysze);
+                    }
                 }
                 
                 // Aktywuj input
                 czyGraRozpoczeta = true;
                 document.getElementById('akcja-input').disabled = false;
                 document.getElementById('akcja-btn').disabled = false;
-                
-                // Załaduj towarzyszy jeśli są
-                if (stan.towarzysze && stan.towarzysze.length > 0) {
-                    aktualizujTowarzyszy(stan.towarzysze);
-                }
             } else {
                 // Nowa gra - rozpocznij przygodę
                 await rozpocznijPrzygode();
@@ -372,7 +377,15 @@
     
     function aktualizujTowarzyszy(towarzysze) {
         const container = document.getElementById('towarzysze-container');
+        const countDisplay = document.getElementById('towarzysze-count');
+        
         console.log('🔍 Towarzysze:', towarzysze);  // DEBUG
+        
+        // Aktualizuj licznik (X/3)
+        if (countDisplay) {
+            countDisplay.textContent = `(${towarzysze ? towarzysze.length : 0}/3)`;
+        }
+        
         if (!towarzysze || towarzysze.length === 0) {
             container.innerHTML = '<p style="color: #8a8a8a; font-style: italic;">Jeszcze nikogo nie masz w drużynie...</p>';
             return;
@@ -599,8 +612,8 @@
             }
         }
         
-        // Towarzysze
-        if (data.towarzysze && data.towarzysze.length > 0) {
+        // Towarzysze - ZAWSZE aktualizuj (nawet jeśli pusta lista)
+        if (data.towarzysze !== undefined) {
             aktualizujTowarzyszy(data.towarzysze);
         }
         
