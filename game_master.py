@@ -322,22 +322,48 @@ Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczb�
         
         # Usuń markdown code blocks jeśli są
         if "```json" in tekst:
-            tekst = tekst.split("```json")[1].split("```")[0]
+            tekst = tekst.split("```json")[1].split("```")[0].strip()
         elif "```" in tekst:
-            tekst = tekst.split("```")[1].split("```")[0]
+            tekst = tekst.split("```")[1].split("```")[0].strip()
+        
+        # Próbuj znaleźć JSON między { }
+        start = tekst.find('{')
+        end = tekst.rfind('}')
+        if start != -1 and end != -1:
+            tekst = tekst[start:end+1]
         
         try:
             return json.loads(tekst)
-        except json.JSONDecodeError:
-            # Fallback - zwróć jako narrację
-            return {
-                "narracja": tekst,
-                "lokacja": "Nieznana",
-                "hp_gracza": 100,
-                "towarzysze": [],
-                "opcje": ["Rozejrzyj się", "Idź dalej", "Odpoczywaj"],
-                "quest_aktywny": None,
-                "walka": False,
+        except json.JSONDecodeError as e:
+            # Loguj błąd parsowania
+            logger.error(f"❌ Nie można sparsować JSON: {e}")
+            logger.error(f"📄 Tekst (pierwsze 500 znaków): {tekst[:500]}")
+            
+            # Fallback - spróbuj wyciągnąć narrację z tekstu
+            if '"narracja"' in tekst or "'narracja'" in tekst:
+                # Może to JSON z błędnym formatowaniem - zwróć cały tekst
+                return {
+                    "narracja": "⚠️ Model zwrócił niepoprawny JSON. Spróbuj ponownie.",
+                    "lokacja": "Nieznana",
+                    "hp_gracza": 100,
+                    "towarzysze": [],
+                    "opcje": ["Spróbuj ponownie", "Rozejrzyj się"],
+                    "quest_aktywny": None,
+                    "walka": False,
+                    "artefakty_zebrane": []
+                }
+            else:
+                # To nie JSON - zwróć tekst jako narrację
+                return {
+                    "narracja": tekst,
+                    "lokacja": "Nieznana",
+                    "hp_gracza": 100,
+                    "towarzysze": [],
+                    "opcje": ["Rozejrzyj się", "Idź dalej", "Odpoczywaj"],
+                    "quest_aktywny": None,
+                    "walka": False,
+                    "artefakty_zebrane": []
+                }
                 "artefakty_zebrane": []
             }
 

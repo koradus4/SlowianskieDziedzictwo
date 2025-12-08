@@ -444,6 +444,7 @@ def stworz_postac():
     
     postac_id = db.zapisz_postac(postac)
     session['postac_id'] = postac_id
+    session.modified = True  # Wymuś zapis sesji
     
     # Loguj utworzenie postaci
     game_log.log_postac_utworzona(postac)
@@ -616,6 +617,7 @@ def wczytaj_zapis(postac_id):
         session['postac'] = postac
         session['postac_id'] = postac_id
         session['historia'] = db.wczytaj_historie(postac_id, limit=100)
+        session.modified = True  # Wymuś zapis sesji
         
         # Przywróć kontekst AI
         game_master.aktualne_hp = postac['hp']
@@ -756,14 +758,21 @@ def rozpocznij_przygode():
         "tekst": narracja
     })
     
+    # Upewnij się że postac_id istnieje (jeśli nie - sesja została wyczyszczona)
+    postac_id = session.get('postac_id')
+    if not postac_id:
+        logger.warning("⚠️ Brak postac_id przy rozpoczęciu - tworzę nowy wpis")
+        postac_id = db.zapisz_postac(postac)
+        session['postac_id'] = postac_id
+    
     # Zapisz do bazy (postać + towarzysze)
-    db.aktualizuj_postac(session.get('postac_id'), {
+    db.aktualizuj_postac(postac_id, {
         'hp': postac.get('hp', hp),
         'zloto': postac.get('zloto', 0),
         'ekwipunek': postac.get('ekwipunek', []),
         'towarzysze': towarzysze
     })
-    db.zapisz_historie(session.get('postac_id'), "ROZPOCZĘCIE GRY", narracja)
+    db.zapisz_historie(postac_id, "ROZPOCZĘCIE GRY", narracja)
     
     session.modified = True
     
@@ -938,15 +947,22 @@ def akcja():
     session['historia'] = historia
     session.modified = True
     
+    # Upewnij się że postac_id istnieje
+    postac_id = session.get('postac_id')
+    if not postac_id:
+        logger.warning("⚠️ Brak postac_id podczas akcji - tworzę nowy wpis")
+        postac_id = db.zapisz_postac(postac)
+        session['postac_id'] = postac_id
+    
     # Zapisz do bazy (postać + historia)
-    db.aktualizuj_postac(session.get('postac_id'), {
+    db.aktualizuj_postac(postac_id, {
         'hp': postac['hp'], 
         'lokacja': postac.get('lokacja', 'gniezno'),
         'zloto': postac.get('zloto', 0),
         'ekwipunek': postac.get('ekwipunek', []),
         'towarzysze': postac.get('towarzysze', [])
     })
-    db.zapisz_historie(session.get('postac_id'), akcja_gracza, narracja)
+    db.zapisz_historie(postac_id, akcja_gracza, narracja)
     
     # Generuj audio z wieloma głosami
     plec_gracza = postac.get('plec', 'mezczyzna')
