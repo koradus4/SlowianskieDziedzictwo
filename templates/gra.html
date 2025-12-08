@@ -216,16 +216,22 @@
 {% block scripts %}
 <script>
     function zapiszGre() {
+        console.log('💾 Próba zapisu gry...');
         fetch('/zapisz_gre', {method: 'POST'})
             .then(r => r.json())
             .then(data => {
+                console.log('💾 Odpowiedź zapisu:', data);
                 if (data.ok) {
                     alert('✅ ' + (data.message || 'Gra zapisana pomyślnie!'));
                 } else {
                     alert('❌ Błąd zapisu: ' + (data.error || 'Nieznany błąd'));
+                    console.error('❌ Szczegóły błędu zapisu:', data);
                 }
             })
-            .catch(e => alert('❌ Błąd połączenia!'));
+            .catch(e => {
+                console.error('❌ Błąd połączenia przy zapisie:', e);
+                alert('❌ Błąd połączenia!');
+            });
     }
     
     async function pokazZapisy() {

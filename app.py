@@ -532,8 +532,15 @@ def zapisz_gre():
         postac = session.get('postac', {})
         postac_id = session.get('postac_id')
         
+        logger.info(f"💾 Próba zapisu - postac_id: {postac_id}, postac: {postac.get('imie', 'BRAK')}")
+        
         if not postac_id:
-            return jsonify({'ok': False, 'error': 'Brak aktywnej gry'})
+            logger.error(f"❌ Brak postac_id w sesji! Session keys: {list(session.keys())}")
+            return jsonify({'ok': False, 'error': 'Brak aktywnej gry (brak postac_id w sesji)'})
+        
+        if not postac:
+            logger.error(f"❌ Brak postaci w sesji!")
+            return jsonify({'ok': False, 'error': 'Brak danych postaci w sesji'})
         
         # Zapisz postać do bazy (bez json.dumps - database.py to robi)
         db.aktualizuj_postac(postac_id, {
