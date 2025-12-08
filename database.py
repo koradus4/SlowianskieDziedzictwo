@@ -36,7 +36,9 @@ class Database:
         if self.use_postgres:
             return psycopg2.connect(self.database_url, cursor_factory=RealDictCursor)
         else:
-            return sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            return conn
     
     def _placeholder(self):
         """Zwraca odpowiedni placeholder dla bazy (%s dla Postgres, ? dla SQLite)"""
@@ -191,20 +193,20 @@ class Database:
             return None
         
         return {
-            'id': row[0],
-            'imie': row[1],
-            'plec': row[2],
-            'lud': row[3],
-            'klasa': row[4],
-            'hp': row[5],
-            'hp_max': row[6],
-            'poziom': row[7],
-            'doswiadczenie': row[8],
-            'zloto': row[9],
-            'statystyki': json.loads(row[10]) if row[10] else {},
-            'ekwipunek': json.loads(row[11]) if row[11] else [],
-            'towarzysze': json.loads(row[12]) if row[12] else [],
-            'lokacja': row[13]
+            'id': row['id'],
+            'imie': row['imie'],
+            'plec': row['plec'],
+            'lud': row['lud'],
+            'klasa': row['klasa'],
+            'hp': row['hp'],
+            'hp_max': row['hp_max'],
+            'poziom': row['poziom'],
+            'doswiadczenie': row['doswiadczenie'],
+            'zloto': row['zloto'],
+            'statystyki': json.loads(row['statystyki']) if row['statystyki'] else {},
+            'ekwipunek': json.loads(row['ekwipunek']) if row['ekwipunek'] else [],
+            'towarzysze': json.loads(row['towarzysze']) if row['towarzysze'] else [],
+            'lokacja': row['lokacja']
         }
     
     def aktualizuj_postac(self, postac_id: int, dane: dict):
@@ -271,7 +273,7 @@ class Database:
         conn.close()
         
         return [
-            {'akcja': row[0], 'odpowiedz': row[1], 'czas': row[2]} 
+            {'akcja': row['akcja_gracza'], 'odpowiedz': row['odpowiedz_mg'], 'czas': row['created_at']} 
             for row in reversed(rows)
         ]
     
@@ -302,7 +304,7 @@ class Database:
         rows = cursor.fetchall()
         conn.close()
         
-        return [{'nazwa': row[0], 'opis': row[1]} for row in rows]
+        return [{'nazwa': row['nazwa'], 'opis': row['opis']} for row in rows]
     
     def lista_postaci(self, limit: int = 10) -> list:
         """Lista zapisanych postaci do wczytania"""
@@ -325,14 +327,14 @@ class Database:
         conn.close()
         
         wynik = [{
-            'id': row[0],
-            'imie': row[1],
-            'lud': row[2],
-            'klasa': row[3],
-            'hp': row[4],
-            'poziom': row[5],
-            'lokacja': row[6],
-            'data': row[7]
+            'id': row['id'],
+            'imie': row['imie'],
+            'lud': row['lud'],
+            'klasa': row['klasa'],
+            'hp': row['hp'],
+            'poziom': row['poziom'],
+            'lokacja': row['lokacja'],
+            'data': row['created_at']
         } for row in rows]
         print(f"🔍 Zwracam: {wynik}")
         return wynik
@@ -372,7 +374,7 @@ class Database:
                 LIMIT -1 OFFSET {ph}
             """, (limit,))
             
-            stare_ids = [row[0] for row in cursor.fetchall()]
+            stare_ids = [row['id'] for row in cursor.fetchall()]
             
             if stare_ids:
                 placeholders = ','.join([ph] * len(stare_ids))
