@@ -306,21 +306,25 @@ class Database:
     
     def lista_postaci(self, limit: int = 10) -> list:
         """Lista zapisanych postaci do wczytania"""
+        print(f"🔍 lista_postaci: limit={limit}")
         conn = self._polacz()
         cursor = conn.cursor()
         
         ph = self._placeholder()
-        cursor.execute(f"""
+        zapytanie = f"""
             SELECT id, imie, lud, klasa, hp, poziom, lokacja, created_at
             FROM postacie 
             ORDER BY created_at DESC 
             LIMIT {ph}
-        """, (limit,))
+        """
+        print(f"🔍 SQL: {zapytanie}")
+        cursor.execute(zapytanie, (limit,))
         
         rows = cursor.fetchall()
+        print(f"🔍 Znaleziono {len(rows)} postaci")
         conn.close()
         
-        return [{
+        wynik = [{
             'id': row[0],
             'imie': row[1],
             'lud': row[2],
@@ -330,6 +334,8 @@ class Database:
             'lokacja': row[6],
             'data': row[7]
         } for row in rows]
+        print(f"🔍 Zwracam: {wynik}")
+        return wynik
     
     def usun_postac(self, postac_id: int) -> bool:
         """Usuwa postać i jej historię"""
