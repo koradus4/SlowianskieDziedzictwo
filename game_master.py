@@ -124,6 +124,8 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         self.historia = []
         self.aktualne_hp = 100  # Przechowuj aktualne HP
         self.hp_max = 100
+        # Logger
+        self.logger = game_log.logger
         # Hugging Face fallback (opcjonalne)
         self.hf_api_token = os.getenv('HF_API_TOKEN')
         self.hf_model = os.getenv('HF_MODEL', '')
