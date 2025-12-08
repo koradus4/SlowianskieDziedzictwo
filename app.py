@@ -925,6 +925,10 @@ def akcja():
     # Oblicz ładowność
     zajete, max_slotow, worki, zwierze = oblicz_ladownosc(postac)
     
+    # DEBUG: Loguj ekwipunek przed wysłaniem
+    ekwipunek_aktualny = postac.get('ekwipunek', [])
+    logger.info(f"🎒 Wysyłam ekwipunek do frontu: {ekwipunek_aktualny} (ilość: {len(ekwipunek_aktualny)})")
+    
     return jsonify({
         "tekst": narracja,
         "audio": audio_url,
@@ -935,7 +939,7 @@ def akcja():
         "quest_aktywny": wynik.get('quest_aktywny'),
         "hp_gracza": wynik.get('hp_gracza', 100),
         "zloto": postac.get('zloto', 0),
-        "ekwipunek": postac.get('ekwipunek', []),
+        "ekwipunek": ekwipunek_aktualny,
         "ladownosc": {"zajete": zajete, "max": max_slotow}
     })
 
