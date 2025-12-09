@@ -159,10 +159,13 @@ Gracz stworzył postać:
 Rozpocznij przygodę w Gnieźnie. Przedstaw:
 1. Krótki opis postaci i jej początków
 2. Opis Gniezna - grodu Polan
-3. Wygeneruj 2 NPC towarzyszy (różne klasy)
+3. Przedstaw 2-3 NPC w karczmie/na rynku, których gracz MOŻE zarekrutować później (za złoto 50-200, zależnie od umiejętności)
 4. Podaj pierwszy quest
 
-WAŻNE: W odpowiedzi JSON ustaw hp_gracza na {self.aktualne_hp} (to jest startowe HP tej postaci).
+WAŻNE: 
+- Gracz zaczyna SAM, bez towarzyszy (pole "towarzysze" musi być pustą listą: [])
+- NPC to tylko potencjalni kandydaci do rekrutacji (dodaj ich do pola "uczestnicy" z typem "npc")
+- W odpowiedzi JSON ustaw hp_gracza na {self.aktualne_hp} (to jest startowe HP tej postaci)
 Pamiętaj o formacie JSON!"""
 
         self.historia = [{"role": "user", "parts": [prompt]}]
