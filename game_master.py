@@ -1,5 +1,6 @@
 """
 Moduł Mistrza Gry - Gemini AI
+Wersja: 1.1 - JSON Schema + Auto-repair (2025-12-09)
 """
 
 import google.generativeai as genai
