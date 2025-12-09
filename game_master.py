@@ -250,8 +250,8 @@ Pamiętaj o formacie JSON!"""
                             "hp_gracza": {"type": "number"},
                             "towarzysze": {"type": "array"},
                             "uczestnicy": {"type": "array"},
-                            "opcje": {"type": "array", "items": {"type": "string"}},
-                            "quest_aktywny": {"type": ["string", "null"]},
+                            "opcje": {"type": "array"},
+                            "quest_aktywny": {"type": "string"},
                             "walka": {"type": "boolean"},
                             "artefakty_zebrane": {"type": "array"}
                         },
@@ -386,8 +386,8 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
                             "towarzysze": {"type": "array"},
                             "uczestnicy": {"type": "array"},
                             "transakcje": {"type": "object"},
-                            "opcje": {"type": "array", "items": {"type": "string"}},
-                            "quest_aktywny": {"type": ["string", "null"]},
+                            "opcje": {"type": "array"},
+                            "quest_aktywny": {"type": "string"},
                             "walka": {"type": "boolean"},
                             "artefakty_zebrane": {"type": "array"}
                         },
