@@ -1095,6 +1095,21 @@ def api_mapa():
             "wrocław": {"x": 250, "y": 300, "nazwa": "Wrocław", "plemie": "Ślężanie"}
         }
         
+        # Konwertuj MAPA_PODROZY (tuple keys) na format dla JavaScript
+        drogi_converted = {}
+        for (od, do), info in MAPA_PODROZY.items():
+            od_lower = od.lower()
+            do_lower = do.lower()
+            
+            if od_lower not in drogi_converted:
+                drogi_converted[od_lower] = {}
+            
+            drogi_converted[od_lower][do_lower] = {
+                "distance": info.get("dystans_km", 0),
+                "time": f"{info.get('czas_dni', 0)} dni",
+                "events_probability": info.get("szansa_eventu", 0.5)
+            }
+        
         # Aktualna lokacja gracza
         postac_id = session.get('postac_id')
         aktualna_lokacja = "gniezno"
@@ -1106,7 +1121,7 @@ def api_mapa():
         
         return jsonify({
             "miasta": miasta_coords,
-            "drogi": MAPA_PODROZY,
+            "drogi": drogi_converted,
             "aktualna_lokacja": aktualna_lokacja
         })
     except Exception as e:

@@ -234,30 +234,13 @@ Pamiętaj o formacie JSON!"""
             # log request
             game_log.log_gemini_request(len(prompt), len(self.historia), model=self.model_name)
             
-            # JSON Schema dla wymuszenia poprawnej struktury
+            # Bez JSON Schema - problemy z Gemini 2.5 Flash
+            # Polegamy na auto-naprawie w _parsuj_json()
             response = self.model.generate_content(
                 [
                     {"role": "user", "parts": [system_prompt_z_lokacjami]},
                     {"role": "user", "parts": [prompt]}
-                ],
-                generation_config={
-                    "response_mime_type": "application/json",
-                    "response_schema": {
-                        "type": "object",
-                        "properties": {
-                            "narracja": {"type": "string"},
-                            "lokacja": {"type": "string"},
-                            "hp_gracza": {"type": "number"},
-                            "towarzysze": {"type": "array"},
-                            "uczestnicy": {"type": "array"},
-                            "opcje": {"type": "array"},
-                            "quest_aktywny": {"type": "string"},
-                            "walka": {"type": "boolean"},
-                            "artefakty_zebrane": {"type": "array"}
-                        },
-                        "required": ["narracja", "lokacja", "hp_gracza", "towarzysze", "opcje"]
-                    }
-                }
+                ]
             )
             
             odpowiedz = self._parsuj_json(response.text)
@@ -372,29 +355,9 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
             messages = [{"role": "user", "parts": [system_prompt_z_lokacjami]}]
             messages.extend(self.historia[-10:])  # Ostatnie 10 wiadomości
             
-            # JSON Schema dla wymuszenia poprawnej struktury
-            response = self.model.generate_content(
-                messages,
-                generation_config={
-                    "response_mime_type": "application/json",
-                    "response_schema": {
-                        "type": "object",
-                        "properties": {
-                            "narracja": {"type": "string"},
-                            "lokacja": {"type": "string"},
-                            "hp_gracza": {"type": "number"},
-                            "towarzysze": {"type": "array"},
-                            "uczestnicy": {"type": "array"},
-                            "transakcje": {"type": "object"},
-                            "opcje": {"type": "array"},
-                            "quest_aktywny": {"type": "string"},
-                            "walka": {"type": "boolean"},
-                            "artefakty_zebrane": {"type": "array"}
-                        },
-                        "required": ["narracja", "lokacja", "hp_gracza", "towarzysze", "opcje"]
-                    }
-                }
-            )
+            # Bez JSON Schema - problemy z Gemini 2.5 Flash
+            # Polegamy na auto-naprawie w _parsuj_json()
+            response = self.model.generate_content(messages)
             
             odpowiedz = self._parsuj_json(response.text)
             elapsed_ms = int((time.time() - start) * 1000)
@@ -477,17 +440,50 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
         except json.JSONDecodeError as e:
             self.logger.error(f"❌ Błąd parsowania JSON: {e}")
             self.logger.error(f"📄 Surowy tekst (pierwsze 500 znaków): {tekst[:500]}")
-            # Fallback - zwróć jako narrację
-            return {
-                "narracja": f"⚠️ Błąd parsowania odpowiedzi AI. Fragment: {tekst[:200]}...",
-                "lokacja": "Nieznana",
-                "hp_gracza": 100,
-                "towarzysze": [],
-                "opcje": ["Spróbuj ponownie", "Rozejrzyj się"],
-                "quest_aktywny": None,
-                "walka": False,
-                "artefakty_zebrane": []
-            }
+            
+            # AGRESYWNA AUTO-NAPRAWA: ekstrahuj wartości z częściowego JSON
+            try:
+                # Szukaj pól w tekście (nawet jeśli brakuje { })
+                narracja_match = re.search(r'"narracja"\s*:\s*"([^"]*)"', tekst, re.DOTALL)
+                lokacja_match = re.search(r'"lokacja"\s*:\s*"([^"]*)"', tekst)
+                hp_match = re.search(r'"hp_gracza"\s*:\s*(\d+)', tekst)
+                opcje_match = re.search(r'"opcje"\s*:\s*\[(.*?)\]', tekst, re.DOTALL)
+                
+                narracja = narracja_match.group(1) if narracja_match else "⚠️ Nie udało się przetworzyć odpowiedzi AI."
+                lokacja = lokacja_match.group(1) if lokacja_match else "Nieznana"
+                hp = int(hp_match.group(1)) if hp_match else 100
+                
+                opcje = []
+                if opcje_match:
+                    opcje_text = opcje_match.group(1)
+                    opcje = [opt.strip(' "') for opt in opcje_text.split(',')]
+                else:
+                    opcje = ["Spróbuj ponownie", "Rozejrzyj się"]
+                
+                self.logger.warning(f"⚙️ Auto-naprawa JSON: wyekstrahowano pola z tekstu")
+                return {
+                    "narracja": narracja,
+                    "lokacja": lokacja,
+                    "hp_gracza": hp,
+                    "towarzysze": [],
+                    "opcje": opcje,
+                    "quest_aktywny": None,
+                    "walka": False,
+                    "artefakty_zebrane": []
+                }
+            except Exception as repair_error:
+                self.logger.error(f"❌ Auto-naprawa też zawiodła: {repair_error}")
+                # Ostateczny fallback
+                return {
+                    "narracja": f"⚠️ Krytyczny błąd parsowania. Tekst: {tekst[:200]}...",
+                    "lokacja": "Nieznana",
+                    "hp_gracza": 100,
+                    "towarzysze": [],
+                    "opcje": ["Spróbuj ponownie", "Rozejrzyj się"],
+                    "quest_aktywny": None,
+                    "walka": False,
+                    "artefakty_zebrane": []
+                }
 
     def _query_hf(self, prompt: str) -> str:
         """Prosty wrapper do zapytań Hugging Face Inference API.
