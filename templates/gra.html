@@ -1069,7 +1069,12 @@
     
     // ===== DZIENNIK PRZYGÓD =====
     async function zaladujDziennik() {
-        const postacId = {{ postac.id }};
+        const postacId = {{ postac.id | default(0) }};
+        
+        if (!postacId) {
+            console.warn('⚠️ Brak ID postaci - pomijam ładowanie dziennika');
+            return;
+        }
         
         try {
             const response = await fetch(`/api/dziennik/${postacId}`);
