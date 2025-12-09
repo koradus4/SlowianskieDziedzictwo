@@ -139,7 +139,7 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         genai.configure(api_key=self.api_key)
         
         # Model Gemini (z ENV lub domyślny)
-        self.model_name = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash-exp')
+        self.model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
         self.model = genai.GenerativeModel(self.model_name)
         self.historia = []
         self.aktualne_hp = 100  # Przechowuj aktualne HP
