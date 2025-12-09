@@ -1066,9 +1066,6 @@
             wyslijAkcje(`Podróżuję do miasta ${miasto.nazwa}`);
         }
     }
-
-    // Załaduj mapę przy starcie
-    zaladujMape();
     
     // ===== DZIENNIK PRZYGÓD =====
     async function zaladujDziennik() {
@@ -1140,12 +1137,18 @@
         activeBtn.style.color = '#fff';
     }
     
-    // Załaduj dziennik przy starcie
-    zaladujDziennik();
-    
-    // === AUTO-START GRY ===
-    // Uruchom grę automatycznie po załadowaniu strony
+    // === AUTO-START WSZYSTKIEGO ===
+    // Uruchom po załadowaniu DOM (wszystkie funkcje już zdefiniowane)
     window.addEventListener('DOMContentLoaded', () => {
+        console.log('🎮 Inicjalizacja gry...');
+        
+        // 1. Załaduj mapę
+        zaladujMape();
+        
+        // 2. Załaduj dziennik
+        zaladujDziennik();
+        
+        // 3. Rozpocznij grę
         rozpocznijPrzygode();
     });
 </script>
