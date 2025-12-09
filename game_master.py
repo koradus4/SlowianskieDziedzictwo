@@ -8,6 +8,15 @@ from typing import Optional
 import json
 from game_logger import game_log, ai_logger
 import os
+from lokacje import (
+    pobierz_lokacje_gracza,
+    pobierz_npc_w_lokalizacji,
+    PLEMIONA,
+    BUDYNKI_DEFINICJE,
+    pobierz_wszystkie_miasta,
+    oblicz_podróż,
+    generuj_event_podrozy
+)
 
 
 class GameMaster:
@@ -17,8 +26,14 @@ class GameMaster:
     
 ŚWIAT:
 - Średniowieczna Polska, czasy przed chrztem
-- 5 plemion: Polanie (Gniezno), Wiślanie (Kraków), Ślężanie (Wrocław), Mazowszanie (Płock), Pomorzanie (Gdańsk)
+- 5 plemion: Polanie (Gniezno), Wiślanie (Kraków), Ślężanie (Ślęża), Mazowszanie (Płock), Pomorzanie (Wolin)
 - Bogowie: Perun, Weles, Swaróg, Mokosz, Strzybóg, Jaryło, Marzanna
+
+## SYSTEM LOKACJI
+{kontekst_lokacji}
+
+**WAŻNE:** Używaj TYLKO lokacji, budynków i NPC z powyższego kontekstu. NIE wymyślaj nowych miejsc ani postaci.
+Podróże między miastami zawsze generują eventy - opisuj je zgodnie z danymi z systemu.
 
 MISJA GRACZA:
 - Zjednoczyć wszystkie plemiona w jedno państwo polskie
@@ -133,6 +148,30 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         # Hugging Face fallback (opcjonalne)
         self.hf_api_token = os.getenv('HF_API_TOKEN')
         self.hf_model = os.getenv('HF_MODEL', '')
+    
+    def _generuj_kontekst_lokacji(self, miasto: str) -> str:
+        """Generuje kontekst lokacji dla AI na podstawie aktualnego miasta gracza"""
+        dane_lokacji = pobierz_lokacje_gracza(miasto)
+        
+        kontekst = f"""
+AKTUALNE MIASTO: {miasto}
+Opis: {dane_lokacji['opis']}
+Plemię: {dane_lokacji['plemie']}
+
+DOSTĘPNE BUDYNKI ({len(dane_lokacji['budynki'])}):
+"""
+        for typ, budynek in dane_lokacji['budynki'].items():
+            kontekst += f"\n{typ}: {budynek['nazwa']} - {budynek['opis']}"
+            if budynek.get('npc'):
+                kontekst += f"\n  NPC w budynku: {', '.join([n['imie'] for n in budynek.get('npc', [])])}"
+        
+        kontekst += f"\n\nDOSTĘPNI NPC W MIEŚCIE ({len(dane_lokacji['npc_dostepni'])}):"
+        for npc in dane_lokacji['npc_dostepni']:
+            kontekst += f"\n- {npc['imie']} ({npc['funkcja']}) w {npc['lokalizacja']} - {npc['cechy']} [Koszt rekrutacji: {npc['koszt_rekrutacji']} złota]"
+        
+        kontekst += f"\n\nINNE MIASTA (podróż): {', '.join([m for m in pobierz_wszystkie_miasta() if m != miasto])}"
+        
+        return kontekst
         
     def rozpocznij_gre(self, postac: dict, lista_przedmiotow: str = "") -> dict:
         """Rozpoczyna nową grę z daną postacią"""
@@ -140,6 +179,14 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         # Zapamiętaj HP startowe
         self.aktualne_hp = postac.get('hp', 100)
         self.hp_max = postac.get('hp_max', self.aktualne_hp)
+        
+        # Pobierz miasto startowe z plemienia
+        plemie = postac.get('plemie', 'Polanie')
+        miasto_startowe = PLEMIONA.get(plemie.lower(), PLEMIONA['polanie'])['miasto']
+        
+        # Generuj kontekst lokacji dla miasta startowego
+        kontekst_lokacji = self._generuj_kontekst_lokacji(miasto_startowe)
+        system_prompt_z_lokacjami = self.SYSTEM_PROMPT.format(kontekst_lokacji=kontekst_lokacji)
         
         przedmioty_info = f"\n\nDostępne przedmioty w grze: {lista_przedmiotow}" if lista_przedmiotow else ""
         
@@ -156,16 +203,17 @@ Gracz stworzył postać:
 - HP startowe: {self.aktualne_hp}/{self.hp_max}
 - Złoto startowe: {postac.get('zloto', 50)}{ekwipunek_info}{przedmioty_info}
 
-Rozpocznij przygodę w Gnieźnie. Przedstaw:
+Rozpocznij przygodę w {miasto_startowe}. Przedstaw:
 1. Krótki opis postaci i jej początków
-2. Opis Gniezna - grodu Polan
-3. Przedstaw 2-3 NPC w karczmie/na rynku, których gracz MOŻE zarekrutować później (za złoto 50-200, zależnie od umiejętności)
+2. Opis {miasto_startowe} - grodu plemienia {postac.get('plemie', 'Polanie')}
+3. Przedstaw 2-3 NPC z SYSTEMU LOKACJI, których gracz MOŻE zarekrutować później (za złoto według kosztu z systemu)
 4. Podaj pierwszy quest
 
 WAŻNE: 
 - Gracz zaczyna SAM, bez towarzyszy (pole "towarzysze" musi być pustą listą: [])
 - NPC to tylko potencjalni kandydaci do rekrutacji (dodaj ich do pola "uczestnicy" z typem "npc")
 - W odpowiedzi JSON ustaw hp_gracza na {self.aktualne_hp} (to jest startowe HP tej postaci)
+- Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego wyżej!
 Pamiętaj o formacie JSON!"""
 
         self.historia = [{"role": "user", "parts": [prompt]}]
@@ -176,7 +224,7 @@ Pamiętaj o formacie JSON!"""
             # log request
             game_log.log_gemini_request(len(prompt), len(self.historia), model=self.model_name)
             response = self.model.generate_content([
-                {"role": "user", "parts": [self.SYSTEM_PROMPT]},
+                {"role": "user", "parts": [system_prompt_z_lokacjami]},
                 {"role": "user", "parts": [prompt]}
             ])
             
@@ -233,6 +281,8 @@ Pamiętaj o formacie JSON!"""
         # Przekaż aktualny stan gracza do Gemini
         kontekst_stanu = ""
         aktualne_hp = 100
+        miasto_gracza = "Gniezno"  # domyślnie
+        
         if stan_gracza:
             aktualne_hp = stan_gracza.get('hp', 100)
             hp_max = stan_gracza.get('hp_max', 100)
@@ -240,6 +290,7 @@ Pamiętaj o formacie JSON!"""
             ekwipunek = stan_gracza.get('ekwipunek', [])
             towarzysze = stan_gracza.get('towarzysze', [])
             liczba_towarzyszy = len(towarzysze)
+            miasto_gracza = stan_gracza.get('lokacja', 'Gniezno')
             
             przedmioty_tekst = f"\n\nDOSTĘPNE PRZEDMIOTY W GRZE: {lista_przedmiotow}" if lista_przedmiotow else ""
             
@@ -260,7 +311,7 @@ Pamiętaj o formacie JSON!"""
             kontekst_stanu = f"""
 AKTUALNY STAN GRACZA:
 - HP: {aktualne_hp}/{hp_max}
-- Lokacja: {stan_gracza.get('lokacja', 'nieznana')}
+- Lokacja: {miasto_gracza}
 - Złoto: {zloto} 💰{ekwipunek_info}{towarzysze_info}{przedmioty_tekst}
 
 WAŻNE: Aktualne HP gracza to {aktualne_hp}. Modyfikuj tę wartość w odpowiedzi (nie resetuj do 100!).
@@ -269,10 +320,15 @@ Jeśli gracz się leczy, dodaj do {aktualne_hp} (max {hp_max}).
 {"LIMIT TOWARZYSZY: " + str(liczba_towarzyszy) + "/3 - NIE PROPONUJ rekrutacji jeśli lista pełna!" if liczba_towarzyszy >= 3 else ""}
 """
         
+        # Generuj kontekst lokacji dla aktualnego miasta
+        kontekst_lokacji = self._generuj_kontekst_lokacji(miasto_gracza)
+        system_prompt_z_lokacjami = self.SYSTEM_PROMPT.format(kontekst_lokacji=kontekst_lokacji)
+        
         prompt = f"""{kontekst_stanu}
 AKCJA GRACZA: {tekst_gracza}
 
-Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczbą bazującą na aktualnym HP ({aktualne_hp})."""
+Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczbą bazującą na aktualnym HP ({aktualne_hp}).
+Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
 
         self.historia.append({"role": "user", "parts": [prompt]})
         
@@ -281,7 +337,7 @@ Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczb�
             start = time.time()
             game_log.log_gemini_request(len(prompt), len(self.historia), model=self.model_name)
             # Buduj kontekst z historią
-            messages = [{"role": "user", "parts": [self.SYSTEM_PROMPT]}]
+            messages = [{"role": "user", "parts": [system_prompt_z_lokacjami]}]
             messages.extend(self.historia[-10:])  # Ostatnie 10 wiadomości
             
             response = self.model.generate_content(messages)
