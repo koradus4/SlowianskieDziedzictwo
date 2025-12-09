@@ -105,6 +105,10 @@ WAŻNE O "towarzysze":
 - Gdy HP towarzyszy < 30%, mogą użyć mikstury z ekwipunku gracza (automatycznie)
 - Gdy HP towarzyszy = 0, nie usuwaj ich z listy - backend obsłuży śmierć/reanimację
 - Każdy towarzysz ma pole "ekwipunek": [] - możesz dodać tam 1-3 przedmioty
+- **ZŁOTO TOWARZYSZY:** Każdy towarzysz może mieć własne złoto zapisane jako string w ekwipunku (np. "5 złotych monet")
+  * Gdy gracz daje towarzyszowi złoto: odejmij od gracza (zloto_zmiana: -X) i dodaj "X złotych monet" do ekwipunku towarzysza
+  * Gdy towarzysz daje graczowi złoto: dodaj graczowi (zloto_zmiana: +X) i usuń/zmniejsz "X złotych monet" z ekwipunku towarzysza
+  * Przykład: Gracz daje 2 złote Bogdanowi → zloto_zmiana: -2, Bogdan.ekwipunek: ["Miecz", "2 złote monety"]
 - Towarzysze mogą dzielić się przedmiotami z graczem (na prośbę)
 
 Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
