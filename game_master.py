@@ -149,27 +149,36 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         self.hf_api_token = os.getenv('HF_API_TOKEN')
         self.hf_model = os.getenv('HF_MODEL', '')
     
-    def _generuj_kontekst_lokacji(self, miasto: str) -> str:
-        """Generuje kontekst lokacji dla AI na podstawie aktualnego miasta gracza"""
+    def _generuj_kontekst_lokacji(self, miasto: str, budynek: str = None) -> str:
+        """Generuje inteligentny kontekst lokacji - tylko relevantne dane"""
         dane_lokacji = pobierz_lokacje_gracza(miasto)
         
-        kontekst = f"""
-AKTUALNE MIASTO: {miasto}
-Opis: {dane_lokacji['opis']}
-Plemię: {dane_lokacji['plemie']}
+        if budynek:
+            # W konkretnym budynku - pełne dane NPC z tego budynku
+            npc_w_budynku = [npc for npc in dane_lokacji['npc_dostepni'] if npc['lokalizacja'] == budynek]
+            kontekst = f"""
+LOKALIZACJA: {budynek} w {miasto}
+Opis budynku: {dane_lokacji['budynki'].get(budynek, {}).get('opis', 'Budynek miejski')}
 
-DOSTĘPNE BUDYNKI ({len(dane_lokacji['budynki'])}):
-"""
-        for typ, budynek in dane_lokacji['budynki'].items():
-            kontekst += f"\n{typ}: {budynek['nazwa']} - {budynek['opis']}"
-            if budynek.get('npc'):
-                kontekst += f"\n  NPC w budynku: {', '.join([n['imie'] for n in budynek.get('npc', [])])}"
+NPC DOSTĘPNI TUTAJ ({len(npc_w_budynku)}):"""
+            for npc in npc_w_budynku:
+                kontekst += f"\n- {npc['imie']} ({npc['funkcja']}) - {npc['cechy']} [Koszt rekrutacji: {npc['koszt_rekrutacji']} złota, ID: {npc['id']}]"
+        else:
+            # Ogólnie w mieście - skrócona wersja
+            kontekst = f"""
+MIASTO: {miasto} ({dane_lokacji['plemie']})
+{dane_lokacji['opis']}
+
+BUDYNKI DOSTĘPNE ({len(dane_lokacji['budynki'])}):
+{', '.join(dane_lokacji['budynki'].keys())}
+
+NPC W MIEŚCIE (przykłady - aby poznać szczegóły, wejdź do budynku):"""
+            # Pokaż tylko 5 przykładowych NPC
+            for npc in dane_lokacji['npc_dostepni'][:5]:
+                kontekst += f"\n- {npc['imie']} ({npc['funkcja']}) w {npc['lokalizacja']}"
+            kontekst += f"\n... i {len(dane_lokacji['npc_dostepni']) - 5} innych NPC"
         
-        kontekst += f"\n\nDOSTĘPNI NPC W MIEŚCIE ({len(dane_lokacji['npc_dostepni'])}):"
-        for npc in dane_lokacji['npc_dostepni']:
-            kontekst += f"\n- {npc['imie']} ({npc['funkcja']}) w {npc['lokalizacja']} - {npc['cechy']} [Koszt rekrutacji: {npc['koszt_rekrutacji']} złota]"
-        
-        kontekst += f"\n\nINNE MIASTA (podróż): {', '.join([m for m in pobierz_wszystkie_miasta() if m != miasto])}"
+        kontekst += f"\n\nINNE MIASTA: {', '.join([m for m in pobierz_wszystkie_miasta() if m != miasto])}"
         
         return kontekst
         
@@ -223,10 +232,32 @@ Pamiętaj o formacie JSON!"""
             start = time.time()
             # log request
             game_log.log_gemini_request(len(prompt), len(self.historia), model=self.model_name)
-            response = self.model.generate_content([
-                {"role": "user", "parts": [system_prompt_z_lokacjami]},
-                {"role": "user", "parts": [prompt]}
-            ])
+            
+            # JSON Schema dla wymuszenia poprawnej struktury
+            response = self.model.generate_content(
+                [
+                    {"role": "user", "parts": [system_prompt_z_lokacjami]},
+                    {"role": "user", "parts": [prompt]}
+                ],
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "response_schema": {
+                        "type": "object",
+                        "properties": {
+                            "narracja": {"type": "string"},
+                            "lokacja": {"type": "string"},
+                            "hp_gracza": {"type": "number"},
+                            "towarzysze": {"type": "array"},
+                            "uczestnicy": {"type": "array"},
+                            "opcje": {"type": "array", "items": {"type": "string"}},
+                            "quest_aktywny": {"type": ["string", "null"]},
+                            "walka": {"type": "boolean"},
+                            "artefakty_zebrane": {"type": "array"}
+                        },
+                        "required": ["narracja", "lokacja", "hp_gracza", "towarzysze", "opcje"]
+                    }
+                }
+            )
             
             odpowiedz = self._parsuj_json(response.text)
             # log response
@@ -340,7 +371,29 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
             messages = [{"role": "user", "parts": [system_prompt_z_lokacjami]}]
             messages.extend(self.historia[-10:])  # Ostatnie 10 wiadomości
             
-            response = self.model.generate_content(messages)
+            # JSON Schema dla wymuszenia poprawnej struktury
+            response = self.model.generate_content(
+                messages,
+                generation_config={
+                    "response_mime_type": "application/json",
+                    "response_schema": {
+                        "type": "object",
+                        "properties": {
+                            "narracja": {"type": "string"},
+                            "lokacja": {"type": "string"},
+                            "hp_gracza": {"type": "number"},
+                            "towarzysze": {"type": "array"},
+                            "uczestnicy": {"type": "array"},
+                            "transakcje": {"type": "object"},
+                            "opcje": {"type": "array", "items": {"type": "string"}},
+                            "quest_aktywny": {"type": ["string", "null"]},
+                            "walka": {"type": "boolean"},
+                            "artefakty_zebrane": {"type": "array"}
+                        },
+                        "required": ["narracja", "lokacja", "hp_gracza", "towarzysze", "opcje"]
+                    }
+                }
+            )
             
             odpowiedz = self._parsuj_json(response.text)
             elapsed_ms = int((time.time() - start) * 1000)
@@ -381,7 +434,7 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
             return self._blad(f"Błąd akcji: {e}")
     
     def _parsuj_json(self, tekst: str) -> dict:
-        """Parsuje JSON z odpowiedzi modelu"""
+        """Parsuje JSON z odpowiedzi modelu - z auto-naprawą"""
         import re
         
         # Szukaj JSON w odpowiedzi
@@ -396,6 +449,19 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
         # Usuń gwiazdki markdown (** lub *)
         tekst = re.sub(r'\*\*', '', tekst)
         tekst = re.sub(r'^\*\s*', '', tekst, flags=re.MULTILINE)
+        
+        # FIX: Napraw brakujący { na początku (częsty błąd)
+        if not tekst.startswith('{') and '"narracja"' in tekst:
+            self.logger.warning("⚠️ Auto-naprawa: dodaję brakujący '{' na początku JSON")
+            tekst = '{' + tekst
+        
+        # FIX: Napraw brakujący } na końcu
+        if tekst.startswith('{') and not tekst.endswith('}'):
+            open_count = tekst.count('{')
+            close_count = tekst.count('}')
+            if open_count > close_count:
+                self.logger.warning(f"⚠️ Auto-naprawa: dodaję {open_count - close_count} brakujących '}}'")
+                tekst += '}' * (open_count - close_count)
         
         # Znajdź JSON między { }
         start = tekst.find('{')
@@ -412,11 +478,11 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
             self.logger.error(f"📄 Surowy tekst (pierwsze 500 znaków): {tekst[:500]}")
             # Fallback - zwróć jako narrację
             return {
-                "narracja": tekst,
+                "narracja": f"⚠️ Błąd parsowania odpowiedzi AI. Fragment: {tekst[:200]}...",
                 "lokacja": "Nieznana",
                 "hp_gracza": 100,
                 "towarzysze": [],
-                "opcje": ["Rozejrzyj się", "Idź dalej", "Odpoczywaj"],
+                "opcje": ["Spróbuj ponownie", "Rozejrzyj się"],
                 "quest_aktywny": None,
                 "walka": False,
                 "artefakty_zebrane": []
