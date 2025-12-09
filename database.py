@@ -129,6 +129,21 @@ class Database:
                 )
             """)
             
+            # Tabela wydarzeń (dziennik przygód)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS wydarzenia (
+                    id {id_type},
+                    postac_id INTEGER,
+                    typ {text_type} NOT NULL,
+                    tytul {text_type} NOT NULL,
+                    opis {text_type},
+                    lokalizacja {text_type},
+                    nagroda {text_type},
+                    created_at {timestamp_default},
+                    FOREIGN KEY (postac_id) REFERENCES postacie(id)
+                )
+            """)
+            
             conn.commit()
             conn.close()
             print("✅ Baza danych zainicjalizowana!")
@@ -392,6 +407,59 @@ class Database:
         except Exception:
             conn.rollback()
             return 0
+        finally:
+            conn.close()
+    
+    def dodaj_wydarzenie(self, postac_id: int, typ: str, tytul: str, opis: str, lokalizacja: str, nagroda: dict = None):
+        """Dodaje wydarzenie do dziennika gracza"""
+        conn = self._polacz()
+        cursor = conn.cursor()
+        
+        try:
+            ph = self._placeholder()
+            cursor.execute(f"""
+                INSERT INTO wydarzenia (postac_id, typ, tytul, opis, lokalizacja, nagroda)
+                VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            """, (postac_id, typ, tytul, opis, lokalizacja, json.dumps(nagroda or {})))
+            
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Błąd zapisywania wydarzenia: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+    
+    def pobierz_wydarzenia(self, postac_id: int, limit: int = 50, typ: str = None):
+        """Pobiera wydarzenia gracza (opcjonalnie filtrowane po typie)"""
+        conn = self._polacz()
+        cursor = conn.cursor()
+        
+        try:
+            ph = self._placeholder()
+            
+            if typ:
+                query = f"""
+                    SELECT * FROM wydarzenia 
+                    WHERE postac_id = {ph} AND typ = {ph}
+                    ORDER BY created_at DESC
+                    LIMIT {ph}
+                """
+                cursor.execute(query, (postac_id, typ, limit))
+            else:
+                query = f"""
+                    SELECT * FROM wydarzenia 
+                    WHERE postac_id = {ph}
+                    ORDER BY created_at DESC
+                    LIMIT {ph}
+                """
+                cursor.execute(query, (postac_id, limit))
+            
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"❌ Błąd pobierania wydarzeń: {e}")
+            return []
         finally:
             conn.close()
 

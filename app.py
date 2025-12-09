@@ -17,6 +17,7 @@ from tts_engine import TTSEngine
 from database import Database
 from game_logger import game_log, logger
 from items import PRZEDMIOTY, get_item, get_all_item_names
+from lokacje import pobierz_wszystkie_miasta, MAPA_PODROZY
 
 app = Flask(__name__)
 app.secret_key = 'slowianski_sekret_2025'
@@ -961,6 +962,51 @@ def akcja():
     })
     db.zapisz_historie(postac_id, akcja_gracza, narracja)
     
+    # AUTO-LOGOWANIE WYDARZEŃ
+    try:
+        # Walka
+        if wynik.get('walka'):
+            db.dodaj_wydarzenie(
+                postac_id, 'walka', 'Walka!', 
+                f"Starcie: {narracja[:150]}...", 
+                postac.get('lokacja', 'nieznana'),
+                {'uczestnicy': wynik.get('uczestnicy', [])}
+            )
+        
+        # Rekrutacja towarzyszy
+        nowi_towarzysze = wynik.get('towarzysze', [])
+        starzy_towarzysze = postac.get('towarzysze', [])
+        if len(nowi_towarzysze) > len(starzy_towarzysze):
+            nowy = [t for t in nowi_towarzysze if t not in starzy_towarzysze]
+            if nowy:
+                db.dodaj_wydarzenie(
+                    postac_id, 'rekrutacja', f'Rekrutacja: {nowy[0]}',
+                    f'Nowy towarzysz dołącza do drużyny!',
+                    postac.get('lokacja', 'nieznana')
+                )
+        
+        # Handel/transakcje
+        if transakcje.get('zloto_zmiana') or transakcje.get('przedmioty_dodane'):
+            zloto_delta = transakcje.get('zloto_zmiana', 0)
+            przedmioty = transakcje.get('przedmioty_dodane', [])
+            if abs(zloto_delta) > 0 or przedmioty:
+                db.dodaj_wydarzenie(
+                    postac_id, 'handel', 'Transakcja',
+                    f'Wymiana dóbr: złoto {zloto_delta:+d}, przedmioty: {", ".join(przedmioty) if przedmioty else "brak"}',
+                    postac.get('lokacja', 'nieznana'),
+                    {'zloto': zloto_delta, 'przedmioty': przedmioty}
+                )
+        
+        # Zmiana lokacji (podróż)
+        if nowa_lokacja and nowa_lokacja != historia[-3].get('lokacja') if len(historia) >= 3 else True:
+            db.dodaj_wydarzenie(
+                postac_id, 'podróż', f'Podróż do: {nowa_lokacja}',
+                'Wyruszasz w drogę...',
+                nowa_lokacja
+            )
+    except Exception as e:
+        logger.warning(f"⚠️ Błąd auto-logowania wydarzeń: {e}")
+    
     # Generuj audio z wieloma głosami
     plec_gracza = postac.get('plec', 'mezczyzna')
     audio_path = tts.syntezuj_multi_voice(narracja, plec_gracza)
@@ -1034,6 +1080,79 @@ def api_logi():
         "logi": logi,
         "statystyki": stats
     })
+
+
+@app.route('/api/mapa')
+def api_mapa():
+    """API - dane do mapy (miasta + koordynaty + drogi)"""
+    try:
+        # Koordynaty miast na mapie SVG (600x400)
+        miasta_coords = {
+            "gniezno": {"x": 300, "y": 100, "nazwa": "Gniezno", "plemie": "Polanie"},
+            "kraków": {"x": 400, "y": 250, "nazwa": "Kraków", "plemie": "Wiślanie"},
+            "szczecin": {"x": 150, "y": 80, "nazwa": "Szczecin", "plemie": "Pomorzanie"},
+            "płock": {"x": 320, "y": 150, "nazwa": "Płock", "plemie": "Mazowszanie"},
+            "wrocław": {"x": 250, "y": 300, "nazwa": "Wrocław", "plemie": "Ślężanie"}
+        }
+        
+        # Aktualna lokacja gracza
+        postac_id = session.get('postac_id')
+        aktualna_lokacja = "gniezno"
+        
+        if postac_id:
+            postac = db.wczytaj_postac(postac_id)
+            if postac:
+                aktualna_lokacja = postac.get('lokacja', 'gniezno').lower()
+        
+        return jsonify({
+            "miasta": miasta_coords,
+            "drogi": MAPA_PODROZY,
+            "aktualna_lokacja": aktualna_lokacja
+        })
+    except Exception as e:
+        logger.error(f"❌ Błąd API mapy: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/dziennik/<int:postac_id>')
+def api_dziennik(postac_id):
+    """API - dziennik wydarzeń gracza"""
+    try:
+        typ_filter = request.args.get('typ')
+        limit = request.args.get('limit', 50, type=int)
+        
+        wydarzenia = db.pobierz_wydarzenia(postac_id, limit=limit, typ=typ_filter)
+        
+        # Statystyki
+        wszystkie = db.pobierz_wydarzenia(postac_id, limit=1000)
+        statystyki = {
+            "walki": len([e for e in wszystkie if e['typ'] == 'walka']),
+            "podroze": len([e for e in wszystkie if e['typ'] == 'podróż']),
+            "handel": len([e for e in wszystkie if e['typ'] == 'handel']),
+            "rekrutacje": len([e for e in wszystkie if e['typ'] == 'rekrutacja']),
+            "questy": len([e for e in wszystkie if e['typ'] == 'quest'])
+        }
+        
+        # Konwersja Row na dict
+        wydarzenia_list = []
+        for w in wydarzenia:
+            wydarzenia_list.append({
+                "id": w['id'],
+                "typ": w['typ'],
+                "tytul": w['tytul'],
+                "opis": w['opis'],
+                "lokalizacja": w['lokalizacja'],
+                "nagroda": json.loads(w['nagroda']) if w['nagroda'] else {},
+                "created_at": w['created_at']
+            })
+        
+        return jsonify({
+            "wydarzenia": wydarzenia_list,
+            "statystyki": statystyki
+        })
+    except Exception as e:
+        logger.error(f"❌ Błąd API dziennika: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/admin/model', methods=['GET', 'POST'])
