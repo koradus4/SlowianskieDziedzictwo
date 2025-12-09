@@ -1142,6 +1142,12 @@
     
     // Załaduj dziennik przy starcie
     zaladujDziennik();
+    
+    // === AUTO-START GRY ===
+    // Uruchom grę automatycznie po załadowaniu strony
+    window.addEventListener('DOMContentLoaded', () => {
+        rozpocznijPrzygode();
+    });
 </script>
 
 <!-- Style dla animacji mapy -->
