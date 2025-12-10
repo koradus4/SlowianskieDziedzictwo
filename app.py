@@ -5,6 +5,7 @@ Flask + Gemini AI + Piper TTS
 
 from flask import Flask, render_template, request, jsonify, session, send_file
 from flask_session import Session
+from dotenv import load_dotenv
 import sqlite3
 import random
 import os
@@ -13,6 +14,9 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from game_master import GameMaster
+
+# Załaduj zmienne z .env
+load_dotenv()
 from tts_engine import TTSEngine
 from database import Database
 from game_logger import game_log, logger
@@ -665,8 +669,11 @@ def rozpocznij_przygode():
             'ekwipunek': postac.get('ekwipunek', [])
         }, lista_przedmiotow=lista_przedmiotow)
     except Exception as e:
-        # Loguj i zwróć przyjazny komunikat zamiast 500
+        # Loguj PEŁNY traceback
+        import traceback
         logger.error(f"❌ Błąd podczas komunikacji z GameMaster: {e}")
+        logger.error(f"📄 Typ błędu: {type(e).__name__}")
+        logger.error(f"📄 Pełny traceback:\n{traceback.format_exc()}")
         game_log.log_blad('GameMaster', str(e), {'endpoint': 'rozpocznij_przygode'})
         tekst = f"⚠️ Błąd połączenia z Mistrzem Gry: {e}"
         return jsonify({

@@ -69,27 +69,27 @@ PRZYKŁAD POPRAWNEGO FORMATOWANIA:
 
 FORMAT ODPOWIEDZI JSON:
 Zawsze odpowiadaj w formacie JSON:
-{
+{{
     "narracja": "Tutaj wklej narrację w formacie z **Narrator:**, **Gracz:**, **Imię [M/K]:**",
     "lokacja": "Nazwa obecnej lokacji",
     "hp_gracza": liczba od 0 do 100,
     "towarzysze": [
-        {"imie": "Imię NPC", "klasa": "Klasa", "hp": liczba, "hp_max": liczba},
-        {"imie": "Imię NPC2", "klasa": "Klasa", "hp": liczba, "hp_max": liczba}
+        {{"imie": "Imię NPC", "klasa": "Klasa", "hp": liczba, "hp_max": liczba}},
+        {{"imie": "Imię NPC2", "klasa": "Klasa", "hp": liczba, "hp_max": liczba}}
     ],
     "uczestnicy": [
-        {"imie": "Nazwa", "typ": "wrog" lub "bestia" lub "npc", "hp_max": liczba (dla wrogów/bestii), "zawod": "tekst (dla NPC)"}
+        {{"imie": "Nazwa", "typ": "wrog" lub "bestia" lub "npc", "hp_max": liczba (dla wrogów/bestii), "zawod": "tekst (dla NPC)"}}
     ],
-    "transakcje": {
+    "transakcje": {{
         "zloto_zmiana": liczba (ujemna = wydatek, dodatnia = zarobek, 0 = brak),
         "przedmioty_dodane": ["Nazwa przedmiotu1", "Nazwa przedmiotu2"],
         "przedmioty_usuniete": ["Nazwa przedmiotu3"]
-    },
+    }},
     "opcje": ["opcja1", "opcja2", "opcja3"],
     "quest_aktywny": "Opis aktywnego zadania lub null",
     "walka": false,
     "artefakty_zebrane": []
-}
+}}
 
 WAŻNE O "transakcje":
 - Używaj TYLKO gdy gracz kupuje/sprzedaje/otrzymuje/traci przedmioty lub złoto
@@ -105,7 +105,7 @@ WAŻNE O "uczestnicy":
 - "wrog" (typ) = wrogowie do walki (bandyci, żołnierze wroga plemienia) - podaj hp_max (20-100)
 - "bestia" (typ) = potwory (smoki, strzygi, wilki) - podaj hp_max (30-150)
 - "npc" (typ) = neutralne postacie (kupcy, mieszkańcy, kapłani) - podaj zawód
-- Przykład: {"imie": "Bandyta", "typ": "wrog", "hp_max": 45}
+- Przykład: {{"imie": "Bandyta", "typ": "wrog", "hp_max": 45}}
 - Usuń z listy postacie które odeszły lub zginęły
 
 WAŻNE O "towarzysze":
@@ -243,6 +243,9 @@ Pamiętaj o formacie JSON!"""
                 ]
             )
             
+            # DEBUGOWANIE: Zaloguj surowy response
+            self.logger.info(f"📄 RAW response.text: {response.text[:1000]}")
+            
             odpowiedz = self._parsuj_json(response.text)
             # log response
             elapsed_ms = int((time.time() - start) * 1000)
@@ -266,6 +269,9 @@ Pamiętaj o formacie JSON!"""
             return odpowiedz
             
         except Exception as e:
+            self.logger.error(f"❌ WYJĄTEK w rozpocznij_gre: {type(e).__name__}: {e}")
+            import traceback
+            self.logger.error(f"📄 Pełny traceback:\n{traceback.format_exc()}")
             elapsed_ms = int((time.time() - start) * 1000) if 'start' in locals() else 0
             game_log.log_gemini_response(0, elapsed_ms, model=self.model_name, success=False, error=str(e))
             # Jeśli Gemini zawodzi — spróbuj fallbacku do Hugging Face (jeśli skonfigurowany)
@@ -427,6 +433,9 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
                 self.logger.warning(f"⚠️ Auto-naprawa: dodaję {open_count - close_count} brakujących '}}'")
                 tekst += '}' * (open_count - close_count)
         
+        # ZAWSZE loguj surowy tekst na początku (dla debugowania)
+        self.logger.info(f"📄 Surowy tekst Gemini (pierwsze 1000 znaków): {tekst[:1000]}")
+        
         # Znajdź JSON między { }
         start = tekst.find('{')
         end = tekst.rfind('}')
@@ -439,7 +448,7 @@ Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
             return wynik
         except json.JSONDecodeError as e:
             self.logger.error(f"❌ Błąd parsowania JSON: {e}")
-            self.logger.error(f"📄 Surowy tekst (pierwsze 500 znaków): {tekst[:500]}")
+            self.logger.error(f"📄 Tekst po ekstrakcji {{...}}: {tekst[:500]}")
             
             # AGRESYWNA AUTO-NAPRAWA: ekstrahuj wartości z częściowego JSON
             try:
