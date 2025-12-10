@@ -646,3 +646,34 @@ if __name__ == "__main__":
         print(f"   Opcje: {', '.join(event['opcje'])}\n")
     
     print("=== TESTY ZAKOŃCZONE ===")
+
+
+# ============================================================================
+# INTEGRACJA Z BESTIARIUSZEM
+# ============================================================================
+
+def pobierz_przeciwnikow_lokacji(miasto):
+    """
+    Zwraca listę przeciwników dostępnych w danej lokacji.
+    Funkcja pomocnicza dla integracji z bestiary.py
+    
+    Args:
+        miasto: Nazwa miasta (np. "Gniezno", "Kraków")
+    
+    Returns:
+        Lista typów lokacji (np. ["wioska", "las", "droga"])
+    """
+    # Każde miasto ma swoje lokalne otoczenie
+    lokacje_bazowe = ["wioska", "droga"]  # Każde miasto
+    
+    # Specyficzne lokacje dla poszczególnych miast
+    specjalne = {
+        "Gniezno": ["las"],
+        "Kraków": ["gory"],
+        "Ślęża": ["gory", "swiatynia"],
+        "Płock": ["rzeka", "las"],
+        "Wolin": ["rzeka", "most"]
+    }
+    
+    return lokacje_bazowe + specjalne.get(miasto, [])
+

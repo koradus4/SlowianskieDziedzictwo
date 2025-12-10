@@ -18,6 +18,11 @@ from lokacje import (
     oblicz_podróż,
     generuj_event_podrozy
 )
+from bestiary import (
+    pobierz_przeciwnikow_dla_lokacji,
+    generuj_kontekst_bestiariusza_dla_ai,
+    pobierz_przeciwnika
+)
 
 
 class GameMaster:
@@ -163,6 +168,33 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         # Hugging Face fallback (opcjonalne)
         self.hf_api_token = os.getenv('HF_API_TOKEN')
         self.hf_model = os.getenv('HF_MODEL', '')
+    
+    def _okresl_typ_lokacji(self, miasto, akcja_tekst=""):
+        """Określa typ otoczenia dla bestiariusza na podstawie miasta i akcji gracza"""
+        akcja_lower = akcja_tekst.lower()
+        
+        # Wykryj z tekstu akcji
+        if any(x in akcja_lower for x in ["las", "bór", "drzewo", "gęstwina"]):
+            return "las"
+        if any(x in akcja_lower for x in ["góry", "szczyt", "przełęcz", "urwisko"]):
+            return "gory"
+        if any(x in akcja_lower for x in ["bagn", "moczar", "trzęsawisk"]):
+            return "bagna"
+        if any(x in akcja_lower for x in ["droga", "trakt", "szlak", "podróż"]):
+            return "droga"
+        if any(x in akcja_lower for x in ["cmentarz", "grób", "mogiła"]):
+            return "cmentarz"
+        if any(x in akcja_lower for x in ["ruiny", "zwaliska", "opuszczon"]):
+            return "ruiny"
+        if any(x in akcja_lower for x in ["jaskini", "grota", "pieczar"]):
+            return "jaskinia"
+        if any(x in akcja_lower for x in ["rzek", "potok", "strumień"]):
+            return "rzeka"
+        if any(x in akcja_lower for x in ["most"]):
+            return "most"
+        
+        # Domyślnie - otoczenie miasta (bezpieczniejsze, mniej bestii)
+        return "wioska"
     
     def _generuj_kontekst_lokacji(self, miasto: str, budynek: str = None) -> str:
         """Generuje inteligentny kontekst lokacji - tylko relevantne dane"""
@@ -359,11 +391,17 @@ Jeśli gracz się leczy, dodaj do {aktualne_hp} (max {hp_max}).
         kontekst_lokacji = self._generuj_kontekst_lokacji(miasto_gracza)
         system_prompt_z_lokacjami = self.SYSTEM_PROMPT.format(kontekst_lokacji=kontekst_lokacji)
         
+        # Generuj kontekst bestiariusza dla aktualnej lokacji
+        lokacja_otoczenia = self._okresl_typ_lokacji(miasto_gracza, tekst_gracza)
+        kontekst_bestiariusza = generuj_kontekst_bestiariusza_dla_ai(lokacja_otoczenia)
+        
         prompt = f"""{kontekst_stanu}
 AKCJA GRACZA: {tekst_gracza}
 
 Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczbą bazującą na aktualnym HP ({aktualne_hp}).
 Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!
+
+{kontekst_bestiariusza}
 
 🔴 KRYTYCZNE - POLE "uczestnicy" 🔴
 NIE WOLNO CI POMINĄĆ TEGO POLA! Pole "uczestnicy" MUSI być zawsze wypełnione poprawnie:
@@ -371,18 +409,21 @@ NIE WOLNO CI POMINĄĆ TEGO POLA! Pole "uczestnicy" MUSI być zawsze wypełnione
 ✅ Jeśli w narracji pojawiają się NPC (kupiec, kowal, kapłan, wojownik) → 
    "uczestnicy": [{{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}}]
 
-✅ Jeśli są wrogowie w walce (bandyci, najemnicy, żołnierze) → 
-   "uczestnicy": [{{"imie": "Bandyta", "typ": "wrog", "hp_max": 50}}]
+✅ Jeśli są wrogowie w walce → UŻYJ TYLKO przeciwników z BESTIARIUSZA powyżej! 
+   "uczestnicy": [{{"imie": "Bandyta", "typ": "wrog", "hp_max": 45}}]
 
-✅ Jeśli są bestie/potwory (wilki, smoki, upiory) → 
-   "uczestnicy": [{{"imie": "Wilk", "typ": "bestia", "hp_max": 40}}]
+✅ Jeśli są bestie/potwory → UŻYJ TYLKO stworzeń z BESTIARIUSZA powyżej!
+   "uczestnicy": [{{"imie": "Szary Wilk", "typ": "bestia", "hp_max": 40, "ikona": "🐺"}}]
 
 ❌ Tylko jeśli gracz jest CAŁKOWICIE SAM w pustym miejscu → "uczestnicy": []
 
 PRZYKŁADY:
 - Narrator mówi o kowalu Bogdanie → MUSISZ dodać {{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}}
 - Gracz rozmawia z kapłanem Żywisławem → MUSISZ dodać {{"imie": "Żywisław", "typ": "npc", "zawod": "Kapłan"}}
-- Gracz sam w lesie → "uczestnicy": []"""
+- Gracz spotyka wilka w lesie → MUSISZ użyć {{"imie": "Szary Wilk", "typ": "bestia", "hp_max": 40, "ikona": "🐺"}}
+- Gracz sam w lesie → "uczestnicy": []
+
+⚠️ NIGDY nie wymyślaj nowych przeciwników! Używaj TYLKO z listy BESTIARIUSZ powyżej!"""
 
         self.historia.append({"role": "user", "parts": [prompt]})
         
@@ -502,6 +543,10 @@ PRZYKŁADY:
                     else:
                         opcje_poprawione.append(opcja)
                 wynik['opcje'] = opcje_poprawione
+            
+            # WALIDACJA BESTIARIUSZA: Sprawdź czy przeciwnicy są z bestiariusza
+            if 'uczestnicy' in wynik and isinstance(wynik['uczestnicy'], list):
+                wynik['uczestnicy'] = self._waliduj_uczestnikow_bestiariusza(wynik['uczestnicy'])
             
             return wynik
         except json.JSONDecodeError as e:
@@ -634,6 +679,51 @@ PRZYKŁADY:
             "walka": False,
             "artefakty_zebrane": []
         }
+    
+    def _waliduj_uczestnikow_bestiariusza(self, uczestnicy):
+        """Waliduje uczestników - zastępuje nieprawidłowych przeciwników danymi z bestiariusza"""
+        if not isinstance(uczestnicy, list):
+            return []
+        
+        walidowani = []
+        for uczestnik in uczestnicy:
+            if not isinstance(uczestnik, dict):
+                continue
+            
+            typ = uczestnik.get('typ', '')
+            
+            # NPC - bez walidacji (system lokacji się tym zajmuje)
+            if typ == 'npc':
+                walidowani.append(uczestnik)
+                continue
+            
+            # Wrogowie i bestie - waliduj z bestiariusza
+            if typ in ['wrog', 'bestia', 'boss']:
+                imie = uczestnik.get('imie', '')
+                
+                # Spróbuj znaleźć w bestiariuszu
+                dane_bestiariusza = pobierz_przeciwnika(imie)
+                
+                if dane_bestiariusza:
+                    # OK - użyj danych z bestiariusza
+                    self.logger.info(f"✅ Walidacja bestiariusza: '{imie}' znaleziony")
+                    uczestnik_poprawiony = {
+                        'imie': dane_bestiariusza['nazwa'],
+                        'typ': dane_bestiariusza['typ'],
+                        'hp_max': dane_bestiariusza['hp_max'],
+                        'ikona': dane_bestiariusza.get('ikona', '⚔️')
+                    }
+                    walidowani.append(uczestnik_poprawiony)
+                else:
+                    # BŁĄD - AI wymyślił przeciwnika spoza bestiariusza
+                    self.logger.warning(f"⚠️ Walidacja bestiariusza: '{imie}' NIE ISTNIEJE w bestiariuszu! Usuwam.")
+                    # Nie dodawaj do listy (usuń nieprawidłowego)
+                    continue
+            else:
+                # Inny typ - przepuść bez zmian
+                walidowani.append(uczestnik)
+        
+        return walidowani
 
 
 # Test
