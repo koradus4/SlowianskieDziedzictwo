@@ -128,18 +128,7 @@
             <p id="quest-display" style="color: #5a9a5a;">Zjednoczenie Plemion</p>
         </div>
         
-        <!-- Mapa Interaktywna -->
-        <div class="card">
-            <h3>🗺️ Mapa Słowiańszczyzny</h3>
-            <div id="mapa-container" style="background: rgba(139, 69, 19, 0.1); border-radius: 8px; padding: 10px;">
-                <svg viewBox="0 0 600 400" id="mapa-svg" style="width: 100%; height: auto; max-height: 300px;">
-                    <!-- Renderowane dynamicznie przez JavaScript -->
-                </svg>
-            </div>
-            <div id="mapa-info" style="font-size: 0.85em; margin-top: 10px; text-align: center; color: #ffd700;">
-                📍 <span id="aktualna-lokacja-txt">Gniezno</span>
-            </div>
-        </div>
+        <!-- Mapa usunięta - nieużywana funkcja wizualna -->
         
         <!-- Przyciski akcji -->
         <div class="card">
@@ -968,104 +957,7 @@
         }).join('');
     }
 
-    // ===== MAPA INTERAKTYWNA =====
-    let mapData = null;
-
-    async function zaladujMape() {
-        try {
-            const response = await fetch('/api/mapa');
-            mapData = await response.json();
-            renderujMape();
-        } catch (e) {
-            console.error('Błąd ładowania mapy:', e);
-        }
-    }
-
-    function renderujMape() {
-        if (!mapData) return;
-        
-        const svg = document.getElementById('mapa-svg');
-        const miasta = mapData.miasta;
-        const drogi = mapData.drogi;
-        const aktualna = mapData.aktualna_lokacja;
-        
-        let html = '';
-        
-        // Renderuj drogi (linie między miastami)
-        for (const [od, polaczenia] of Object.entries(drogi)) {
-            const miastoOd = miasta[od];
-            if (!miastoOd) continue;
-            
-            for (const [do_miasta, info] of Object.entries(polaczenia)) {
-                const miastoDo = miasta[do_miasta];
-                if (!miastoDo) continue;
-                
-                // Kolor drogi według bezpieczeństwa
-                const kolor = info.events_probability > 0.5 ? '#dc3545' : info.events_probability > 0.3 ? '#ffc107' : '#28a745';
-                
-                html += `<line x1="${miastoOd.x}" y1="${miastoOd.y}" x2="${miastoDo.x}" y2="${miastoDo.y}" 
-                         stroke="${kolor}" stroke-width="2" stroke-dasharray="5,5" opacity="0.5"/>`;
-            }
-        }
-        
-        // Renderuj miasta (koła + nazwy)
-        for (const [id, miasto] of Object.entries(miasta)) {
-            const jestesTu = id === aktualna;
-            const promien = jestesTu ? 18 : 12;
-            const kolor = jestesTu ? '#ffd700' : '#4682b4';
-            
-            html += `
-                <circle cx="${miasto.x}" cy="${miasto.y}" r="${promien}" 
-                        fill="${kolor}" stroke="#fff" stroke-width="2" 
-                        class="miasto-marker" data-miasto="${id}" 
-                        style="cursor: pointer; ${jestesTu ? 'animation: pulse 2s infinite;' : ''}"/>
-                <text x="${miasto.x}" y="${miasto.y + 30}" 
-                      text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">
-                    ${miasto.nazwa}
-                </text>
-            `;
-        }
-        
-        svg.innerHTML = html;
-        
-        // Aktualizuj tekst
-        document.getElementById('aktualna-lokacja-txt').textContent = miasta[aktualna]?.nazwa || aktualna;
-        
-        // Dodaj event listeners dla miast
-        document.querySelectorAll('.miasto-marker').forEach(marker => {
-            marker.addEventListener('click', () => {
-                const miastoId = marker.getAttribute('data-miasto');
-                pokazModalPodrozy(miastoId);
-            });
-        });
-    }
-
-    function pokazModalPodrozy(doMiasta) {
-        if (doMiasta === mapData.aktualna_lokacja) {
-            alert('Jesteś już w tym mieście!');
-            return;
-        }
-        
-        const miasto = mapData.miasta[doMiasta];
-        const droga = mapData.drogi[mapData.aktualna_lokacja]?.[doMiasta];
-        
-        if (!droga) {
-            alert('Brak bezpośredniej drogi do tego miasta!');
-            return;
-        }
-        
-        const potwierdzenie = confirm(
-            `🗺️ Podróż do: ${miasto.nazwa} (${miasto.plemie})\n\n` +
-            `📏 Dystans: ${droga.distance} km\n` +
-            `⏱️ Czas: ${droga.time}\n` +
-            `⚠️ Ryzyko wydarzeń: ${Math.round(droga.events_probability * 100)}%\n\n` +
-            `Wyruszysz w drogę?`
-        );
-        
-        if (potwierdzenie) {
-            wyslijAkcje(`Podróżuję do miasta ${miasto.nazwa}`);
-        }
-    }
+    // Map UI has been removed — all related functions are disabled
     
     // ===== DZIENNIK PRZYGÓD =====
     async function zaladujDziennik() {
@@ -1147,9 +1039,7 @@
     window.addEventListener('DOMContentLoaded', () => {
         console.log('🎮 Inicjalizacja gry...');
         
-        // 1. Załaduj mapę
-        zaladujMape();
-        
+        // Map removed: skip map loading
         // 2. Załaduj dziennik
         zaladujDziennik();
         

@@ -24,7 +24,7 @@ from tts_engine import TTSEngine
 from database import Database
 from game_logger import game_log, logger
 from items import PRZEDMIOTY, get_item, get_all_item_names
-from lokacje import pobierz_wszystkie_miasta, MAPA_PODROZY
+from lokacje import pobierz_wszystkie_miasta
 
 app = Flask(__name__)
 app.secret_key = 'slowianski_sekret_2025'
@@ -1092,51 +1092,7 @@ def api_logi():
     })
 
 
-@app.route('/api/mapa')
-def api_mapa():
-    """API - dane do mapy (miasta + koordynaty + drogi)"""
-    try:
-        # Koordynaty miast na mapie SVG (600x400)
-        miasta_coords = {
-            "gniezno": {"x": 300, "y": 100, "nazwa": "Gniezno", "plemie": "Polanie"},
-            "kraków": {"x": 400, "y": 250, "nazwa": "Kraków", "plemie": "Wiślanie"},
-            "szczecin": {"x": 150, "y": 80, "nazwa": "Szczecin", "plemie": "Pomorzanie"},
-            "płock": {"x": 320, "y": 150, "nazwa": "Płock", "plemie": "Mazowszanie"},
-            "wrocław": {"x": 250, "y": 300, "nazwa": "Wrocław", "plemie": "Ślężanie"}
-        }
-        
-        # Konwertuj MAPA_PODROZY (tuple keys) na format dla JavaScript
-        drogi_converted = {}
-        for (od, do), info in MAPA_PODROZY.items():
-            od_lower = od.lower()
-            do_lower = do.lower()
-            
-            if od_lower not in drogi_converted:
-                drogi_converted[od_lower] = {}
-            
-            drogi_converted[od_lower][do_lower] = {
-                "distance": info.get("dystans_km", 0),
-                "time": f"{info.get('czas_dni', 0)} dni",
-                "events_probability": info.get("szansa_eventu", 0.5)
-            }
-        
-        # Aktualna lokacja gracza
-        postac_id = session.get('postac_id')
-        aktualna_lokacja = "gniezno"
-        
-        if postac_id:
-            postac = db.wczytaj_postac(postac_id)
-            if postac:
-                aktualna_lokacja = postac.get('lokacja', 'gniezno').lower()
-        
-        return jsonify({
-            "miasta": miasta_coords,
-            "drogi": drogi_converted,
-            "aktualna_lokacja": aktualna_lokacja
-        })
-    except Exception as e:
-        logger.error(f"❌ Błąd API mapy: {e}")
-        return jsonify({"error": str(e)}), 500
+# Map API removed — functionality intentionally disabled (feature removed)
 
 
 @app.route('/api/dziennik/<int:postac_id>')
