@@ -69,27 +69,27 @@ PRZYKŁAD POPRAWNEGO FORMATOWANIA:
 
 FORMAT ODPOWIEDZI JSON:
 Zawsze odpowiadaj w formacie JSON:
-{
+{{
     "narracja": "Tutaj wklej narrację w formacie z **Narrator:**, **Gracz:**, **Imię [M/K]:**",
     "lokacja": "Nazwa obecnej lokacji",
     "hp_gracza": liczba od 0 do 100,
     "towarzysze": [
-        {"imie": "Imię NPC", "klasa": "Klasa", "hp": liczba, "hp_max": liczba},
-        {"imie": "Imię NPC2", "klasa": "Klasa", "hp": liczba, "hp_max": liczba}
+        {{"imie": "Imię NPC", "klasa": "Klasa", "hp": liczba, "hp_max": liczba}},
+        {{"imie": "Imię NPC2", "klasa": "Klasa", "hp": liczba, "hp_max": liczba}}
     ],
     "uczestnicy": [
-        {"imie": "Nazwa", "typ": "wrog" lub "bestia" lub "npc", "hp_max": liczba (dla wrogów/bestii), "zawod": "tekst (dla NPC)"}
+        {{"imie": "Nazwa", "typ": "wrog" lub "bestia" lub "npc", "hp_max": liczba (dla wrogów/bestii), "zawod": "tekst (dla NPC)"}}
     ],
-    "transakcje": {
+    "transakcje": {{
         "zloto_zmiana": liczba (ujemna = wydatek, dodatnia = zarobek, 0 = brak),
         "przedmioty_dodane": ["Nazwa przedmiotu1", "Nazwa przedmiotu2"],
         "przedmioty_usuniete": ["Nazwa przedmiotu3"]
-    },
+    }},
     "opcje": ["opcja1", "opcja2", "opcja3"],
     "quest_aktywny": "Opis aktywnego zadania lub null",
     "walka": false,
     "artefakty_zebrane": []
-}
+}}
 
 WAŻNE O "opcje":
 - Każda opcja musi być KRÓTKA (max 60 znaków!)
@@ -112,7 +112,7 @@ WAŻNE O "uczestnicy":
 - "wrog" (typ) = wrogowie do walki (bandyci, żołnierze wroga plemienia) - podaj hp_max (20-100)
 - "bestia" (typ) = potwory (smoki, strzygi, wilki) - podaj hp_max (30-150)
 - "npc" (typ) = neutralne postacie (kupcy, mieszkańcy, kapłani) - podaj zawód
-- Przykład: {"imie": "Bandyta", "typ": "wrog", "hp_max": 45}
+- Przykład: {{"imie": "Bandyta", "typ": "wrog", "hp_max": 45}}
 - Usuń z listy postacie które odeszły lub zginęły
 
 WAŻNE O "towarzysze":
