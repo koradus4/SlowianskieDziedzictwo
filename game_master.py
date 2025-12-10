@@ -78,7 +78,9 @@ Zawsze odpowiadaj w formacie JSON:
         {{"imie": "Imię NPC2", "klasa": "Klasa", "hp": liczba, "hp_max": liczba}}
     ],
     "uczestnicy": [
-        {{"imie": "Nazwa", "typ": "wrog" lub "bestia" lub "npc", "hp_max": liczba (dla wrogów/bestii), "zawod": "tekst (dla NPC)"}}
+        {{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}},
+        {{"imie": "Żywisław", "typ": "npc", "zawod": "Kapłan"}},
+        {{"imie": "Wilk", "typ": "bestia", "hp_max": 40}}
     ],
     "transakcje": {{
         "zloto_zmiana": liczba (ujemna = wydatek, dodatnia = zarobek, 0 = brak),
@@ -108,11 +110,16 @@ WAŻNE O "transakcje":
 - Używaj tylko przedmiotów z listy dostępnych przedmiotów podanej w kontekście!
 
 WAŻNE O "uczestnicy":
+- **ZAWSZE WYPEŁNIAJ TO POLE** - nie pozostawiaj pustej tablicy []!
 - Dodawaj do listy wszystkie istotne postacie w bieżącej scenie
 - "wrog" (typ) = wrogowie do walki (bandyci, żołnierze wroga plemienia) - podaj hp_max (20-100)
 - "bestia" (typ) = potwory (smoki, strzygi, wilki) - podaj hp_max (30-150)
 - "npc" (typ) = neutralne postacie (kupcy, mieszkańcy, kapłani) - podaj zawód
-- Przykład: {{"imie": "Bandyta", "typ": "wrog", "hp_max": 45}}
+- Przykłady:
+  * Gracz spotyka kowala Bogdana → "uczestnicy": [{{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}}]
+  * Gracz atakowany przez wilki → "uczestnicy": [{{"imie": "Szary wilk", "typ": "bestia", "hp_max": 40}}]
+  * Gracz w karczmie z kupcem i barmanem → "uczestnicy": [{{"imie": "Dobromir", "typ": "npc", "zawod": "Kupiec"}}, {{"imie": "Wacław", "typ": "npc", "zawod": "Karczmarz"}}]
+- TYLKO jeśli gracz jest CAŁKOWICIE sam w pustym miejscu (pusty las, samotna droga) → "uczestnicy": []
 - Usuń z listy postacie które odeszły lub zginęły
 
 WAŻNE O "towarzysze":
@@ -358,11 +365,24 @@ AKCJA GRACZA: {tekst_gracza}
 Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczbą bazującą na aktualnym HP ({aktualne_hp}).
 Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!
 
-KRYTYCZNE: Pole "uczestnicy" MUSI zawierać WSZYSTKIE postacie obecne w bieżącej scenie:
-- Jeśli rozmawiacie z NPC (kupiec, kapłan, itp.) → dodaj go jako {{"imie": "Imię", "typ": "npc", "zawod": "Zawód"}}
-- Jeśli są wrogowie w walce → {{"imie": "Imię", "typ": "wrog", "hp_max": 50}}
-- Jeśli są bestie/potwory → {{"imie": "Imię", "typ": "bestia", "hp_max": 80}}
-- Tylko jeśli gracz jest CAŁKOWICIE SAM (np. w lesie, na drodze) → []"""
+🔴 KRYTYCZNE - POLE "uczestnicy" 🔴
+NIE WOLNO CI POMINĄĆ TEGO POLA! Pole "uczestnicy" MUSI być zawsze wypełnione poprawnie:
+
+✅ Jeśli w narracji pojawiają się NPC (kupiec, kowal, kapłan, wojownik) → 
+   "uczestnicy": [{{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}}]
+
+✅ Jeśli są wrogowie w walce (bandyci, najemnicy, żołnierze) → 
+   "uczestnicy": [{{"imie": "Bandyta", "typ": "wrog", "hp_max": 50}}]
+
+✅ Jeśli są bestie/potwory (wilki, smoki, upiory) → 
+   "uczestnicy": [{{"imie": "Wilk", "typ": "bestia", "hp_max": 40}}]
+
+❌ Tylko jeśli gracz jest CAŁKOWICIE SAM w pustym miejscu → "uczestnicy": []
+
+PRZYKŁADY:
+- Narrator mówi o kowalu Bogdanie → MUSISZ dodać {{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}}
+- Gracz rozmawia z kapłanem Żywisławem → MUSISZ dodać {{"imie": "Żywisław", "typ": "npc", "zawod": "Kapłan"}}
+- Gracz sam w lesie → "uczestnicy": []"""
 
         self.historia.append({"role": "user", "parts": [prompt]})
         
@@ -433,6 +453,12 @@ KRYTYCZNE: Pole "uczestnicy" MUSI zawierać WSZYSTKIE postacie obecne w bieżąc
         tekst = re.sub(r'\*\*', '', tekst)
         tekst = re.sub(r'^\*\s*', '', tekst, flags=re.MULTILINE)
         
+        # FIX: Usuń podwójny {{ na początku (częsty błąd Gemini)
+        tekst = tekst.strip()
+        while tekst.startswith('{{'):
+            self.logger.warning("⚠️ Auto-naprawa: usuwam podwójny '{{' na początku")
+            tekst = tekst[1:].strip()
+        
         # FIX: Napraw brakujący { na początku (częsty błąd)
         if not tekst.startswith('{') and '"narracja"' in tekst:
             self.logger.warning("⚠️ Auto-naprawa: dodaję brakujący '{' na początku JSON")
@@ -448,6 +474,12 @@ KRYTYCZNE: Pole "uczestnicy" MUSI zawierać WSZYSTKIE postacie obecne w bieżąc
         
         # ZAWSZE loguj surowy tekst na początku (dla debugowania)
         self.logger.info(f"📄 Surowy tekst Gemini (pierwsze 1000 znaków): {tekst[:1000]}")
+        
+        # DEBUG: Sprawdź czy "uczestnicy" jest w surowym tekście
+        if '"uczestnicy"' in tekst:
+            self.logger.info("✅ Pole 'uczestnicy' ZNALEZIONE w surowym JSON")
+        else:
+            self.logger.warning("⚠️ Pole 'uczestnicy' NIE ZNALEZIONE w surowym JSON - Gemini go nie wygenerował!")
         
         # Znajdź JSON między { }
         start = tekst.find('{')
