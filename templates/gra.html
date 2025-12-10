@@ -964,7 +964,9 @@
         const postacId = {{ postac.id | default(0) }};
         
         if (!postacId) {
-            console.warn('⚠️ Brak ID postaci - pomijam ładowanie dziennika');
+            console.warn('⚠️ Brak ID postaci - pokazuję pusty dziennik');
+            const container = document.getElementById('dziennik-historia');
+            container.innerHTML = '<p style="color: #888; font-style: italic;">Brak wydarzeń - rozpocznij przygodę!</p>';
             return;
         }
         
@@ -975,6 +977,8 @@
             renderujHistorie(data.wydarzenia);
         } catch (e) {
             console.error('Błąd ładowania dziennika:', e);
+            const container = document.getElementById('dziennik-historia');
+            container.innerHTML = '<p style="color: #dc3545; font-style: italic;">⚠️ Błąd ładowania historii</p>';
         }
     }
     
