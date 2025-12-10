@@ -356,7 +356,13 @@ Jeśli gracz się leczy, dodaj do {aktualne_hp} (max {hp_max}).
 AKCJA GRACZA: {tekst_gracza}
 
 Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczbą bazującą na aktualnym HP ({aktualne_hp}).
-Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!"""
+Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!
+
+KRYTYCZNE: Pole "uczestnicy" MUSI zawierać WSZYSTKIE postacie obecne w bieżącej scenie:
+- Jeśli rozmawiacie z NPC (kupiec, kapłan, itp.) → dodaj go jako {{"imie": "Imię", "typ": "npc", "zawod": "Zawód"}}
+- Jeśli są wrogowie w walce → {{"imie": "Imię", "typ": "wrog", "hp_max": 50}}
+- Jeśli są bestie/potwory → {{"imie": "Imię", "typ": "bestia", "hp_max": 80}}
+- Tylko jeśli gracz jest CAŁKOWICIE SAM (np. w lesie, na drodze) → []"""
 
         self.historia.append({"role": "user", "parts": [prompt]})
         
