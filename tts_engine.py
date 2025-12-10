@@ -134,19 +134,33 @@ class TTSEngine:
             # Przygotuj żądanie
             synthesis_input = texttospeech.SynthesisInput(text=tekst)
             
-            # Wybierz głos polski
-            gender = texttospeech.SsmlVoiceGender.MALE if "B" in voice_name or "C" in voice_name else texttospeech.SsmlVoiceGender.FEMALE
+            # Wybierz głos polski z dostosowanym pitch
+            # Narrator: pl-PL-Wavenet-B (męski głęboki, pitch=-2)
+            # Gracz: pl-PL-Wavenet-C (męski spokojny, pitch=0)
+            # NPC męski: pl-PL-Wavenet-D (męski energiczny, pitch=1)
+            # NPC kobieta: pl-PL-Wavenet-A (kobieta wyrazista, pitch=2)
+            gender = texttospeech.SsmlVoiceGender.MALE if "B" in voice_name or "C" in voice_name or "D" in voice_name else texttospeech.SsmlVoiceGender.FEMALE
             voice = texttospeech.VoiceSelectionParams(
                 language_code="pl-PL",
                 name=voice_name,
                 ssml_gender=gender
             )
             
+            # Ustaw pitch na podstawie głosu
+            pitch_map = {
+                "pl-PL-Wavenet-A": 2.0,   # Kobieta - wyżej
+                "pl-PL-Wavenet-B": -2.0,  # Narrator - głębiej
+                "pl-PL-Wavenet-C": 0.0,   # Gracz - neutralnie
+                "pl-PL-Wavenet-D": 1.0,   # NPC męski - lekko wyżej
+                "pl-PL-Wavenet-E": 3.0    # Kobieta alternatywna
+            }
+            pitch = pitch_map.get(voice_name, 0.0)
+            
             # Konfiguracja audio
             audio_config = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3,
                 speaking_rate=1.0,
-                pitch=0.0
+                pitch=pitch
             )
             
             # Wywołaj API
@@ -173,12 +187,12 @@ class TTSEngine:
         try:
             audio_parts = []
             
-            # Mapowanie głosów
+            # Mapowanie głosów - 4 różne głosy Google Cloud
             voice_map = {
-                "narrator": "pl-PL-Wavenet-B",  # Męski głęboki
-                "gracz": "pl-PL-Wavenet-C",      # Męski spokojny
-                "npc_m": "pl-PL-Wavenet-B",      # Męski (jak narrator)
-                "npc_k": "pl-PL-Wavenet-A"       # Kobieta wyrazista
+                "narrator": "pl-PL-Wavenet-B",  # Męski głęboki (narrator)
+                "gracz": "pl-PL-Wavenet-C",      # Męski spokojny (bohater)
+                "npc_m": "pl-PL-Wavenet-D",      # Męski energiczny (NPC mężczyzna)
+                "npc_k": "pl-PL-Wavenet-A"       # Kobieta wyrazista (NPC kobieta)
             }
             
             # Generuj audio dla każdego segmentu
