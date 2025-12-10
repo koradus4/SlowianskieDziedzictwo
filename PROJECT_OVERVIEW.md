@@ -201,7 +201,7 @@ python app.py
 
 1. **Dodanie nowego przeciwnika:**
    - Dodaj wpis do `bestiary.py` (unikalny `id`, `nazwa`, `hp_max`, `typ`, `poziom_trudnosci`, `lokacje`, `statystyki`, `loot`)
-   - Zaktualizuj testy i `BESTIARY.md` (jeśli jest dokumentowany ręcznie)
+  - Zaktualizuj testy i dokumentację w `PROJECT_OVERVIEW.md` (jeśli jest dokumentowany ręcznie)
 
 2. **Dodanie nowego przedmiotu:**
    - Dodaj do `PRZEDMIOTY` w `items.py` ze wszystkimi właściwościami i ewentualnymi efektami
