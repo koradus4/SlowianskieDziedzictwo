@@ -106,12 +106,14 @@ prompt_kontekst = generuj_kontekst_bestiariusza_dla_ai("las")
 ```
 
 Zaleca się: gdy `GameMaster` tworzy prompt, wstrzyknąć `kontekst_bestiariusza` tylko dla aktualnej lokacji, żeby AI nie używało potworów z innych regionów.
+> NOTE: The content of the standalone `BESTIARY.md` has been merged into this `PROJECT_OVERVIEW.md` and the canonical data remain in `bestiary.py`. The doc file `BESTIARY.md` has been removed from the repo to avoid duplication.
 
 ---
 
 ## 9. Lokacje (Plan implementacji)
 
 Sekcja Lokacji pochodzi z `lokacje.py` i planu implementacji: jest ona deterministyczna i ma na celu powstrzymanie AI przed wymyślaniem nowych miast, budynków i NPC.
+> NOTE: The content of the standalone `PLAN_LOKACJI.md` has been merged into this `PROJECT_OVERVIEW.md` and the canonical data are in `lokacje.py`. The doc file `PLAN_LOKACJI.md` has been removed from the repo to avoid duplication.
 
 Główne elementy:
  - 5 plemion/miast (Polanie/Gniezno, Wiślanie/Kraków, Pomorzanie/Wolin, Mazowszanie/Płock, Ślężanie/Ślęża)
