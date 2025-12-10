@@ -95,6 +95,12 @@ Gra będzie dostępna pod adresem: **http://127.0.0.1:5000**
 
 ---
 
+## 📚 Project Overview
+
+Jeśli chcesz szybkie, centralne źródło prawie WSZYSTKIEGO co w repozytorium, zobacz `PROJECT_OVERVIEW.md` — szczegółowy opis architektury, modułów, przepływów, funkcji i tipsów developerskich.
+
+---
+
 ## 🎯 Jak Grać
 
 1. **Stwórz Postać** - Wybierz plemię (Polanie, Wiślanie, Ślężanie, Mazowszanie, Pomorzanie), klasę (Wojownik, Kupiec, Druid, Kowal, Łowca) i imię
