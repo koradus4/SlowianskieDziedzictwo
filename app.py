@@ -5,7 +5,6 @@ Flask + Gemini AI + Piper TTS
 
 from flask import Flask, render_template, request, jsonify, session, send_file
 from flask_session import Session
-from dotenv import load_dotenv
 import sqlite3
 import random
 import os
@@ -15,8 +14,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from game_master import GameMaster
 
-# Załaduj zmienne z .env
-load_dotenv()
+# Załaduj zmienne z .env (tylko lokalnie)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # W produkcji (Cloud Run) używamy zmiennych środowiskowych
 from tts_engine import TTSEngine
 from database import Database
 from game_logger import game_log, logger
