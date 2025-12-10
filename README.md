@@ -19,6 +19,7 @@ Zanurz się w świecie dawnej Polski, gdzie magia splata się z historią! Gra f
 - 👥 **Towarzysze Drużyny** - Rekrutuj sojuszników do pomocy
 - 💰 **Handel i Ekwipunek** - Kupuj przedmioty, zarządzaj inwentarzem z ładownością
 - 🗺️ **Eksploracja** - Podróżuj po historycznych lokacjach Polski
+  - NOTE: The interactive map UI has been removed; travel and exploration still function through gameplay actions and prompts.
 - 🎲 **System Statystyk** - Siła, Zręczność, Wytrzymałość, Inteligencja, Charyzma, Szczęście
 
 ---
