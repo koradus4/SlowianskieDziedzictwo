@@ -148,11 +148,11 @@ class TTSEngine:
             
             # Ustaw pitch na podstawie głosu
             pitch_map = {
-                "pl-PL-Wavenet-A": 2.0,   # Kobieta - wyżej
+                "pl-PL-Wavenet-A": 2.0,   # Kobieta NPC - wyżej
                 "pl-PL-Wavenet-B": -2.0,  # Narrator - głębiej
-                "pl-PL-Wavenet-C": 0.0,   # Gracz - neutralnie
+                "pl-PL-Wavenet-C": 0.0,   # Gracz mężczyzna - neutralnie
                 "pl-PL-Wavenet-D": 1.0,   # NPC męski - lekko wyżej
-                "pl-PL-Wavenet-E": 3.0    # Kobieta alternatywna
+                "pl-PL-Wavenet-E": 1.5    # Graczka kobieta - delikatnie wyżej
             }
             pitch = pitch_map.get(voice_name, 0.0)
             
@@ -187,10 +187,11 @@ class TTSEngine:
         try:
             audio_parts = []
             
-            # Mapowanie głosów - 4 różne głosy Google Cloud
+            # Mapowanie głosów - 5 różnych głosów Google Cloud (z płcią gracza)
             voice_map = {
                 "narrator": "pl-PL-Wavenet-B",  # Męski głęboki (narrator)
-                "gracz": "pl-PL-Wavenet-C",      # Męski spokojny (bohater)
+                "gracz_m": "pl-PL-Wavenet-C",    # Męski spokojny (bohater mężczyzna)
+                "gracz_k": "pl-PL-Wavenet-E",    # Kobieta delikatna (bohaterka kobieta)
                 "npc_m": "pl-PL-Wavenet-D",      # Męski energiczny (NPC mężczyzna)
                 "npc_k": "pl-PL-Wavenet-A"       # Kobieta wyrazista (NPC kobieta)
             }
@@ -272,7 +273,7 @@ class TTSEngine:
         """
         # Cloud TTS - wielogłosowa synteza
         if self.use_cloud_tts:
-            segments = self._parsuj_dialogi_cloud(tekst)
+            segments = self._parsuj_dialogi_cloud(tekst, plec_gracza)
             if segments:
                 return self._syntezuj_google_tts_multi(segments)
             else:
@@ -301,11 +302,11 @@ class TTSEngine:
         
         return str(self._sklej_audio(audio_files))
     
-    def _parsuj_dialogi_cloud(self, tekst: str) -> list:
+    def _parsuj_dialogi_cloud(self, tekst: str, plec_gracza: str = "mezczyzna") -> list:
         """
         Parsuje tekst dla Cloud TTS i zwraca listę (typ_głosu, tekst).
         **Narrator:** → narrator
-        **Gracz:** → gracz
+        **Gracz:** → gracz_m (mężczyzna) lub gracz_k (kobieta)
         **NPC [M]:** → npc_m
         **NPC [K]:** → npc_k
         """
@@ -326,7 +327,8 @@ class TTSEngine:
             if "Narrator" in speaker or "narrator" in speaker:
                 voice_type = "narrator"
             elif "Gracz" in speaker or "gracz" in speaker:
-                voice_type = "gracz"
+                # Użyj płci gracza do wyboru głosu
+                voice_type = "gracz_k" if plec_gracza == "kobieta" else "gracz_m"
             elif "[K]" in speaker or "[k]" in speaker:
                 voice_type = "npc_k"
             elif "[M]" in speaker or "[m]" in speaker:
