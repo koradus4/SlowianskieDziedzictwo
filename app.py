@@ -10,6 +10,7 @@ import random
 import os
 import json
 import time
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from game_master import GameMaster
@@ -87,6 +88,110 @@ def stackuj_ekwipunek(ekwipunek_lista):
     for przedmiot in ekwipunek_lista:
         stackowane[przedmiot] = stackowane.get(przedmiot, 0) + 1
     return stackowane
+
+
+def przetworz_hp_przeciwnikow(uczestnicy, narracja):
+    """Przetwarza HP przeciwników - inicjalizuje nowych, aktualizuje istniejących"""
+    if 'przeciwnicy_hp' not in session:
+        session['przeciwnicy_hp'] = {}
+    
+    przeciwnicy_hp = session['przeciwnicy_hp']
+    wynik = []
+    
+    for uczestnik in uczestnicy:
+        typ = uczestnik.get('typ', 'npc')
+        imie = uczestnik.get('imie', 'Nieznajomy')
+        
+        # NPC - bez HP (przepuść bez zmian)
+        if typ == 'npc':
+            wynik.append(uczestnik)
+            continue
+        
+        # Wrogowie i bestie - zarządzaj HP
+        if typ in ['wrog', 'bestia', 'boss']:
+            hp_max = uczestnik.get('hp_max', 50)
+            
+            # Unikalny ID: jeśli uczestnik ma 'uid', użyj go; w przeciwnym razie wygeneruj
+            uid = uczestnik.get('uid')
+            if not uid:
+                uid = uuid.uuid4().hex[:8]
+                uczestnik['uid'] = uid
+            
+            klucz = f"{typ}_{imie}_{uid}"  # Unikalny klucz z ID
+            
+            # Sprawdź czy przeciwnik już istnieje w sesji
+            if klucz not in przeciwnicy_hp:
+                # NOWY przeciwnik - inicjalizuj z pełnym HP
+                przeciwnicy_hp[klucz] = {
+                    'hp': hp_max,
+                    'hp_max': hp_max,
+                    'imie': imie,
+                    'typ': typ,
+                    'ikona': uczestnik.get('ikona', '⚔️')
+                }
+                logger.info(f"🆕 Nowy przeciwnik: {imie} ({typ}) - HP: {hp_max}/{hp_max}")
+            
+            # PRIORYTET: Jeśli AI zwrócił 'hp' w JSON - użyj tego (AI sam liczy!)
+            hp_od_ai = uczestnik.get('hp')
+            
+            if hp_od_ai is not None:
+                # AI podał HP - ZAUFAJ MU!
+                hp_aktualny = hp_od_ai
+                hp_poprzedni = przeciwnicy_hp[klucz]['hp']
+                if hp_aktualny != hp_poprzedni:
+                    logger.info(f"🤖 AI zaktualizował HP {imie}: {hp_poprzedni} → {hp_aktualny}")
+                przeciwnicy_hp[klucz]['hp'] = hp_aktualny
+            else:
+                # AI NIE podał HP - użyj regex jako fallback
+                hp_aktualny = przeciwnicy_hp[klucz]['hp']
+                import re
+                wzorce_obrazen = [
+                    rf"zadajesz[^.]*?(\d+)[^.]*?(obrażeń|obrażenia)[^.]*?{imie}",
+                    rf"zadajesz[^.]*?{imie}[^.]*?(\d+)[^.]*?(obrażeń|punktów obrażeń)",
+                    rf"{imie}[^.]*?(otrzymuje|dostaje|traci)[^.]*?(\d+)[^.]*?(obrażeń|punktów obrażeń|HP|zdrowia)",
+                    rf"zadajesz[^.]*?(\d+)[^.]*?(obrażeń|obrażenia|punktów obrażeń)",
+                ]
+                
+                obrazenia = 0
+                for wzorzec in wzorce_obrazen:
+                    match = re.search(wzorzec, narracja, re.IGNORECASE)
+                    if match:
+                        try:
+                            obrazenia = int(match.group(2) if match.lastindex >= 2 else match.group(1))
+                            logger.info(f"💥 Regex wykrył obrażenia dla {imie}: {obrazenia} HP")
+                            break
+                        except (ValueError, IndexError):
+                            continue
+                
+                if obrazenia > 0:
+                    hp_aktualny = max(0, hp_aktualny - obrazenia)
+                    przeciwnicy_hp[klucz]['hp'] = hp_aktualny
+                    logger.info(f"⚔️ {imie}: {hp_aktualny + obrazenia} → {hp_aktualny} HP")
+            
+            # Sprawdź czy przeciwnik zginął
+            if hp_aktualny <= 0:
+                logger.info(f"💀 {imie} zginął! Usuwam z sesji.")
+                # Usuń z sesji (nie pojawi się w następnej turze)
+                del przeciwnicy_hp[klucz]
+                # NIE dodawaj do wyniku (martwy przeciwnik znika)
+                continue
+            
+            # Dodaj aktualny HP do uczestnika
+            uczestnik_z_hp = uczestnik.copy()
+            uczestnik_z_hp['hp'] = hp_aktualny
+            uczestnik_z_hp['hp_max'] = hp_max
+            uczestnik_z_hp['uid'] = uid  # Zachowaj UID dla frontendu
+            wynik.append(uczestnik_z_hp)
+        else:
+            # Inny typ - przepuść bez zmian
+            wynik.append(uczestnik)
+    
+    # Zapisz zaktualizowany słownik HP do sesji
+    session['przeciwnicy_hp'] = przeciwnicy_hp
+    session.modified = True
+    
+    logger.info(f"🔚 Zwracam {len(wynik)} uczestników z HP")
+    return wynik
 
 
 def oblicz_ladownosc(postac):
@@ -1047,12 +1152,16 @@ def akcja():
     ekwipunek_aktualny = postac.get('ekwipunek', [])
     logger.info(f"🎒 Wysyłam ekwipunek do frontu: {ekwipunek_aktualny} (ilość: {len(ekwipunek_aktualny)})")
     
+    # SYSTEM HP PRZECIWNIKÓW
+    uczestnicy_raw = wynik.get('uczestnicy', [])
+    uczestnicy_z_hp = przetworz_hp_przeciwnikow(uczestnicy_raw, narracja)
+    
     return jsonify({
         "tekst": narracja,
         "audio": audio_url,
         "lokacja": wynik.get('lokacja'),
         "towarzysze": towarzysze,
-        "uczestnicy": wynik.get('uczestnicy', []),  # NOWE: wrogowie/NPC/bestie
+        "uczestnicy": uczestnicy_z_hp,  # NOWE: wrogowie/NPC/bestie z HP
         "opcje": wynik.get('opcje', []),
         "quest_aktywny": wynik.get('quest_aktywny'),
         "hp_gracza": wynik.get('hp_gracza', 100),

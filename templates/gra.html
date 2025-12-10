@@ -453,35 +453,58 @@
         let html = '';
         uczestnicy.forEach(u => {
             const typ = u.typ || 'npc'; // 'wrog', 'bestia', 'npc'
+            const uid = u.uid || u.imie; // Unikalny identyfikator
             let ikona = '👤';
             let hpDisplay = '';
             
-            if (typ === 'wrog') {
-                ikona = '⚔️';
-                // Zamazane HP - pokazuj symbole mieczy zamiast liczb
-                const sila = u.hp_max || 50;
+            if (typ === 'wrog' || typ === 'bestia' || typ === 'boss') {
+                // WROGOWIE/BESTIE - Pokaż pasek HP
+                ikona = u.ikona || (typ === 'wrog' ? '⚔️' : typ === 'boss' ? '💀' : '🐺');
+                
+                const hp = u.hp || u.hp_max || 50;
+                const hp_max = u.hp_max || 50;
+                const hpPercent = Math.round((hp / hp_max) * 100);
+                
+                // Kolor paska na podstawie % HP
+                let barColor = '';
+                if (hpPercent > 66) {
+                    barColor = 'linear-gradient(90deg, #28a745, #20c997)'; // Zielony
+                } else if (hpPercent > 33) {
+                    barColor = 'linear-gradient(90deg, #ffc107, #fd7e14)'; // Żółto-pomarańczowy
+                } else {
+                    barColor = 'linear-gradient(90deg, #dc3545, #c82333)'; // Czerwony
+                }
+                
+                // Wskaźnik siły (miecze)
+                const sila = hp_max;
                 let miecze = '';
                 if (sila < 30) miecze = '⚔️⚔️⚔️';
                 else if (sila < 60) miecze = '⚔️⚔️⚔️⚔️';
                 else if (sila < 100) miecze = '⚔️⚔️⚔️⚔️⚔️';
                 else miecze = '💀 GROŹNY';
-                hpDisplay = `<div style="font-size: 0.8em; color: #dc3545;">${miecze}</div>`;
-            } else if (typ === 'bestia') {
-                ikona = '🐺';
-                const sila = u.hp_max || 40;
-                let ocena = sila < 30 ? 'Słaba' : sila < 60 ? 'Średnia' : 'Niebezpieczna';
-                hpDisplay = `<div style="font-size: 0.8em; color: #ffc107;">Siła: ${ocena}</div>`;
+                
+                hpDisplay = `
+                    <div style="font-size: 0.8em; color: #aaa; margin-top: 4px;">
+                        ${miecze}
+                    </div>
+                    <div style="font-size: 0.85em; color: #ddd; margin-top: 4px;">
+                        HP: ${hp}/${hp_max}
+                    </div>
+                    <div class="hp-bar" style="height: 10px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden; margin-top: 6px;">
+                        <div class="hp-fill" style="width: ${hpPercent}%; height: 100%; background: ${barColor}; transition: width 0.3s ease;"></div>
+                    </div>
+                `;
             } else {
                 // NPC - bez HP
                 hpDisplay = `<div style="font-size: 0.8em; color: #8a8a8a;">${u.zawod || 'Mieszkaniec'}</div>`;
             }
             
-            html += `<div style="margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 5px; border-left: 3px solid ${typ === 'wrog' ? '#dc3545' : typ === 'bestia' ? '#ffc107' : '#5a9a5a'};">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-size: 0.95em;"><strong>${ikona} ${u.imie || 'Nieznajomy'}</strong></div>
-                        ${hpDisplay}
-                    </div>
+            const borderColor = typ === 'wrog' ? '#dc3545' : typ === 'bestia' ? '#ffc107' : typ === 'boss' ? '#6f42c1' : '#5a9a5a';
+            
+            html += `<div data-uid="${uid}" style="margin: 8px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px; border-left: 3px solid ${borderColor};">
+                <div>
+                    <div style="font-size: 0.95em;"><strong>${ikona} ${u.imie || 'Nieznajomy'}</strong></div>
+                    ${hpDisplay}
                 </div>
             </div>`;
         });

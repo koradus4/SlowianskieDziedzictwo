@@ -395,13 +395,32 @@ Jeśli gracz się leczy, dodaj do {aktualne_hp} (max {hp_max}).
         lokacja_otoczenia = self._okresl_typ_lokacji(miasto_gracza, tekst_gracza)
         kontekst_bestiariusza = generuj_kontekst_bestiariusza_dla_ai(lokacja_otoczenia)
         
+        # Pobierz aktualny HP przeciwników z sesji (jeśli są w walce)
+        from flask import session
+        przeciwnicy_hp_sesja = session.get('przeciwnicy_hp', {})
+        kontekst_hp_przeciwnikow = ""
+        if przeciwnicy_hp_sesja:
+            kontekst_hp_przeciwnikow = "\n\n🎯 AKTUALNE HP PRZECIWNIKÓW W WALCE:\n"
+            for klucz, dane in przeciwnicy_hp_sesja.items():
+                imie = dane['imie']
+                hp = dane['hp']
+                hp_max = dane['hp_max']
+                procent = int((hp / hp_max) * 100)
+                kontekst_hp_przeciwnikow += f"- {imie}: {hp}/{hp_max} HP ({procent}%)\n"
+            kontekst_hp_przeciwnikow += "\n⚔️ WYMAGANIA DLA WALKI:\n"
+            kontekst_hp_przeciwnikow += "- W narracji NAPISZ: 'zadajesz X obrażeń [IMIĘ]' (np. 'zadajesz 15 obrażeń Szaremu Wilkowi')\n"
+            kontekst_hp_przeciwnikow += "- W JSON 'uczestnicy' MUSISZ podać aktualne 'hp' dla każdego przeciwnika!\n"
+            kontekst_hp_przeciwnikow += "- Przykład: {\"imie\": \"Szary Wilk\", \"typ\": \"bestia\", \"hp\": 38, \"hp_max\": 40}\n"
+            kontekst_hp_przeciwnikow += "- Gdy przeciwnik atakuje gracza, odejmij HP od hp_gracza w JSON\n"
+            kontekst_hp_przeciwnikow += "- Gdy HP przeciwnika spadnie do 0 → napisz że zginął i NIE dodawaj go do 'uczestnicy'\n"
+        
         prompt = f"""{kontekst_stanu}
 AKCJA GRACZA: {tekst_gracza}
 
 Odpowiedz jako Mistrz Gry. Pamiętaj o formacie JSON! hp_gracza musi być liczbą bazującą na aktualnym HP ({aktualne_hp}).
 Używaj TYLKO NPC i budynków z SYSTEMU LOKACJI podanego w kontekście!
 
-{kontekst_bestiariusza}
+{kontekst_bestiariusza}{kontekst_hp_przeciwnikow}
 
 🔴 KRYTYCZNE - POLE "uczestnicy" 🔴
 NIE WOLNO CI POMINĄĆ TEGO POLA! Pole "uczestnicy" MUSI być zawsze wypełnione poprawnie:
@@ -713,6 +732,11 @@ PRZYKŁADY:
                         'hp_max': dane_bestiariusza['hp_max'],
                         'ikona': dane_bestiariusza.get('ikona', '⚔️')
                     }
+                    # KRYTYCZNE: Zachowaj pole 'hp' i 'uid' z AI jeśli zostały zwrócone!
+                    if 'hp' in uczestnik:
+                        uczestnik_poprawiony['hp'] = uczestnik['hp']
+                    if 'uid' in uczestnik:
+                        uczestnik_poprawiony['uid'] = uczestnik['uid']
                     walidowani.append(uczestnik_poprawiony)
                 else:
                     # BŁĄD - AI wymyślił przeciwnika spoza bestiariusza
