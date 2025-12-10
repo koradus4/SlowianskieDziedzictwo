@@ -641,6 +641,11 @@
             aktualizujTowarzyszy(data.towarzysze);
         }
         
+        // Uczestnicy akcji - ZAWSZE aktualizuj (wrogowie/NPC/bestie)
+        if (data.uczestnicy !== undefined) {
+            aktualizujUczestnikow(data.uczestnicy);
+        }
+        
         // Quest
         if (data.quest_aktywny) {
             const questEl = document.getElementById('quest-display');

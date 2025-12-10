@@ -810,6 +810,7 @@ def rozpocznij_przygode():
         "audio": audio_url,
         "lokacja": wynik.get('lokacja', 'Gniezno'),
         "towarzysze": towarzysze,  # Używaj znormalizowanych towarzyszy
+        "uczestnicy": wynik.get('uczestnicy', []),  # NOWE: wrogowie/NPC/bestie w scenie startowej
         "opcje": wynik.get('opcje', []),
         "quest_aktywny": wynik.get('quest_aktywny'),
         "hp_gracza": wynik.get('hp_gracza', 100),
