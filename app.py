@@ -788,6 +788,56 @@ def rozpocznij_przygode():
             'zloto': postac.get('zloto', 50),
             'ekwipunek': postac.get('ekwipunek', [])
         }, lista_przedmiotow=lista_przedmiotow)
+    except ValueError as e:
+        # Błąd API key - wyraźny komunikat
+        error_msg = str(e)
+        if 'GEMINI_API_KEY' in error_msg or 'nieprawidłowy' in error_msg or 'wygasł' in error_msg:
+            logger.error(f"❌ GEMINI API KEY ERROR: {e}")
+            game_log.log_blad('GameMaster', str(e), {'endpoint': 'rozpocznij_przygode'})
+            tekst = f"⚠️ **BŁĄD KONFIGURACJI:** Klucz API Google Gemini jest nieprawidłowy lub wygasł.\n\n" \
+                    f"**Rozwiązanie:**\n" \
+                    f"1. Wejdź na: https://aistudio.google.com/app/apikey\n" \
+                    f"2. Stwórz nowy klucz API\n" \
+                    f"3. Zaktualizuj plik `.env` → `GEMINI_API_KEY=twój_nowy_klucz`\n" \
+                    f"4. Zrestartuj serwer\n\n" \
+                    f"Szczegóły: {error_msg}"
+            return jsonify({
+                'tekst': tekst,
+                'audio': None,
+                'lokacja': postac.get('lokacja', 'Gniezno'),
+                'towarzysze': postac.get('towarzysze', []),
+                'opcje': ['Napraw klucz API i odśwież'],
+                'quest_aktywny': None,
+                'hp_gracza': hp,
+                'zloto': postac.get('zloto', 0),
+                'ekwipunek': postac.get('ekwipunek', []),
+                'ladownosc': {'zajete': len(postac.get('ekwipunek', [])), 'max': 10}
+            }), 200
+        else:
+            raise  # Inne ValueError
+    except RuntimeError as e:
+        # Błąd limitu/quota
+        error_msg = str(e)
+        if 'quota' in error_msg.lower() or 'limit' in error_msg.lower():
+            logger.warning(f"⚠️ GEMINI QUOTA: {e}")
+            game_log.log_blad('GameMaster', str(e), {'endpoint': 'rozpocznij_przygode'})
+            tekst = f"⚠️ **LIMIT API:** Przekroczono dozwoloną liczbę zapytań do Google Gemini.\n\n" \
+                    f"Spróbuj ponownie za kilka minut.\n\n" \
+                    f"Szczegóły: {error_msg}"
+            return jsonify({
+                'tekst': tekst,
+                'audio': None,
+                'lokacja': postac.get('lokacja', 'Gniezno'),
+                'towarzysze': postac.get('towarzysze', []),
+                'opcje': ['Spróbuj ponownie'],
+                'quest_aktywny': None,
+                'hp_gracza': hp,
+                'zloto': postac.get('zloto', 0),
+                'ekwipunek': postac.get('ekwipunek', []),
+                'ladownosc': {'zajete': len(postac.get('ekwipunek', [])), 'max': 10}
+            }), 200
+        else:
+            raise  # Inne RuntimeError
     except Exception as e:
         # Loguj PEŁNY traceback
         import traceback
@@ -828,28 +878,6 @@ def rozpocznij_przygode():
         }), 200
 
     narracja = wynik.get('narracja', 'Przygoda się zaczyna...')
-
-    # Wykryj czy MG zwraca komunikat o limicie / błędzie (np. 429/quota)
-    narracja_lower = (narracja or '').lower()
-    if any(token in narracja_lower for token in ['429', 'quota', 'exceeded', 'przekroc', 'ograniczen', 'limit', 'spróbuj ponownie']):
-        logger.warning(f"⚠️ Odkryto komunikat o limicie/API w odpowiedzi MG (start gry): {narracja}")
-        game_log.log_blad('GameMaster', 'Quota/Limit detected in response (start)', {'endpoint': 'rozpocznij_przygode', 'wynik': narracja})
-        tekst = (
-            "⚠️ Mistrz Gry: wystąpił problem z serwisem AI (limit lub błąd połączenia). "
-            "Spróbuj ponownie za kilka sekund lub sprawdź ustawienia GEMINI_API_KEY."
-        )
-        return jsonify({
-            'tekst': tekst,
-            'audio': None,
-            'lokacja': postac.get('lokacja', 'Gniezno'),
-            'towarzysze': postac.get('towarzysze', []),
-            'opcje': ['Spróbuj ponownie'],
-            'quest_aktywny': None,
-            'hp_gracza': hp,
-            'zloto': postac.get('zloto', 0),
-            'ekwipunek': postac.get('ekwipunek', []),
-            'ladownosc': {'zajete': len(postac.get('ekwipunek', [])), 'max': 10}
-        }), 200
     
     # WALIDUJ I APLIKUJ TRANSAKCJE
     transakcje = wynik.get('transakcje', {})
@@ -980,6 +1008,50 @@ def akcja():
     # Użyj nowego API GameMaster z aktualnym stanem + lista przedmiotów
     try:
         wynik = game_master.akcja(akcja_gracza, stan_gracza, lista_przedmiotow)
+    except ValueError as e:
+        # Błąd API key
+        error_msg = str(e)
+        if 'GEMINI_API_KEY' in error_msg or 'nieprawidłowy' in error_msg or 'wygasł' in error_msg:
+            logger.error(f"❌ GEMINI API KEY ERROR: {e}")
+            game_log.log_blad('GameMaster', str(e), {'endpoint': 'akcja', 'akcja': akcja_gracza})
+            tekst = f"⚠️ **BŁĄD KONFIGURACJI:** Klucz API Google Gemini jest nieprawidłowy.\n\n" \
+                    f"Sprawdź `.env` i zrestartuj serwer.\n\n" \
+                    f"Szczegóły: {error_msg}"
+            return jsonify({
+                'tekst': tekst,
+                'audio': None,
+                'lokacja': stan_gracza.get('lokacja', 'nieznana'),
+                'towarzysze': stan_gracza.get('towarzysze', []),
+                'opcje': ['Napraw klucz API'],
+                'quest_aktywny': None,
+                'hp_gracza': stan_gracza.get('hp', 100),
+                'zloto': stan_gracza.get('zloto', 0),
+                'ekwipunek': session.get('postac', {}).get('ekwipunek', []),
+                'ladownosc': {'zajete': len(session.get('postac', {}).get('ekwipunek', [])), 'max': 10}
+            }), 200
+        else:
+            raise
+    except RuntimeError as e:
+        # Quota/limit
+        error_msg = str(e)
+        if 'quota' in error_msg.lower() or 'limit' in error_msg.lower():
+            logger.warning(f"⚠️ GEMINI QUOTA: {e}")
+            game_log.log_blad('GameMaster', str(e), {'endpoint': 'akcja', 'akcja': akcja_gracza})
+            tekst = f"⚠️ **LIMIT API:** Przekroczono limit zapytań.\n\nSpróbuj ponownie za kilka minut."
+            return jsonify({
+                'tekst': tekst,
+                'audio': None,
+                'lokacja': stan_gracza.get('lokacja', 'nieznana'),
+                'towarzysze': stan_gracza.get('towarzysze', []),
+                'opcje': ['Spróbuj ponownie'],
+                'quest_aktywny': None,
+                'hp_gracza': stan_gracza.get('hp', 100),
+                'zloto': stan_gracza.get('zloto', 0),
+                'ekwipunek': session.get('postac', {}).get('ekwipunek', []),
+                'ladownosc': {'zajete': len(session.get('postac', {}).get('ekwipunek', [])), 'max': 10}
+            }), 200
+        else:
+            raise
     except TimeoutError as e:
         logger.error(f"❌ Timeout podczas akcji (GameMaster): {e}")
         game_log.log_blad('GameMaster', str(e), {'endpoint': 'akcja', 'akcja': akcja_gracza})
@@ -1015,8 +1087,7 @@ def akcja():
         }), 200
     
     # W przypadku gdy GameMaster zwróci błąd/komunikat o limicie (np. 429 quota)
-    # Gemini potrafi zwrócić tekst z informacją o przekroczeniu limitu zamiast poprawnego JSON-a.
-    # Wykryj typowe wskazówki (429, quota, exceeded, Spróbuj ponownie) i zrób przyjazny fallback.
+    # — UWAGA: To nie powinno już się zdarzyć po nowych except blokach powyżej, ale zostawiam jako zabezpieczenie
     if not isinstance(wynik, dict):
         logger.error(f"❌ Niepoprawna odpowiedź MG (nie-dict): {wynik}")
         game_log.log_blad('GameMaster', 'Niepoprawna odpowiedź', {'endpoint': 'akcja', 'akcja': akcja_gracza, 'wynik': str(wynik)})
@@ -1036,29 +1107,6 @@ def akcja():
 
     # Wyciągnij narrację
     narracja = wynik.get('narracja', 'Coś się dzieje...')
-
-    # Szukaj fragmentów wskazujących na błąd/quota
-    narracja_lower = (narracja or '').lower()
-    if any(token in narracja_lower for token in ['429', 'quota', 'exceeded', 'przekroc', 'ograniczen', 'limit', 'spróbuj ponownie']):
-        logger.warning(f"⚠️ Odkryto komunikat o limicie/API w odpowiedzi MG: {narracja}")
-        game_log.log_blad('GameMaster', 'Quota/Limit detected in response', {'endpoint': 'akcja', 'akcja': akcja_gracza, 'wynik': narracja})
-        tekst = (
-            "⚠️ Mistrz Gry: wystąpił problem z serwisem AI (limit lub błąd połączenia). "
-            "Spróbuj ponownie za kilka sekund lub sprawdź ustawienia GEMINI_API_KEY."
-        )
-        # Zwróć przyjazny fallback — bez wywoływania TTS, aby uniknąć dodatkowych błędów
-        return jsonify({
-            'tekst': tekst,
-            'audio': None,
-            'lokacja': stan_gracza.get('lokacja', 'nieznana'),
-            'towarzysze': stan_gracza.get('towarzysze', []),
-            'opcje': ['Spróbuj ponownie'],
-            'quest_aktywny': None,
-            'hp_gracza': stan_gracza.get('hp', 100),
-            'zloto': stan_gracza.get('zloto', 0),
-            'ekwipunek': session.get('postac', {}).get('ekwipunek', []),
-            'ladownosc': {'zajete': len(session.get('postac', {}).get('ekwipunek', [])), 'max': 10}
-        }), 200
     
     # Loguj odpowiedź MG
     game_log.log_odpowiedz_mg(wynik)

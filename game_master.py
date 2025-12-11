@@ -3,7 +3,7 @@ Moduł Mistrza Gry - Gemini AI
 Wersja: 1.1 - JSON Schema + Auto-repair (2025-12-09)
 """
 
-import google.generativeai as genai
+genai = None
 import requests
 from typing import Optional
 import json
@@ -155,11 +155,24 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         if not self.api_key:
             raise ValueError("❌ Brak GEMINI_API_KEY w zmiennych środowiskowych!")
         
-        genai.configure(api_key=self.api_key)
+        # Lazy import of Google SDK - import only when GEMINI is configured to avoid slow imports during testing
+        try:
+            import google.generativeai as _genai
+            global genai
+            genai = _genai
+        except Exception as e:
+            self.logger.warning(f"⚠️ Nie udało się zaimportować google.generativeai: {e}")
+            genai = None
+
+        if genai:
+            genai.configure(api_key=self.api_key)
         
         # Model Gemini (z ENV lub domyślny)
         self.model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
-        self.model = genai.GenerativeModel(self.model_name)
+        if genai:
+            self.model = genai.GenerativeModel(self.model_name)
+        else:
+            self.model = None
         self.historia = []
         self.aktualne_hp = 100  # Przechowuj aktualne HP
         self.hp_max = 100
@@ -172,6 +185,9 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
     def _call_model_with_timeout(self, messages, timeout: int = 12):
         """Wywołuje generative model w wątku i stosuje timeout, by nie blokować serwera."""
         import concurrent.futures
+
+        if not getattr(self, 'model', None):
+            raise RuntimeError('No generative model configured (genai not available)')
 
         def _call():
             return self.model.generate_content(messages)
@@ -186,8 +202,17 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
                 game_log.log_gemini_response(0, timeout * 1000, model=self.model_name, success=False, error='timeout')
                 raise TimeoutError(f"Gemini timeout after {timeout}s")
             except Exception as e:
-                self.logger.error(f"❌ Gemini call failed: {e}")
-                raise
+                # Rozpoznaj typ błędu API key vs inne
+                error_str = str(e)
+                if 'API_KEY_INVALID' in error_str or 'API key not valid' in error_str:
+                    self.logger.error(f"❌ Gemini API KEY NIEPRAWIDŁOWY: {e}")
+                    raise ValueError(f"GEMINI_API_KEY jest nieprawidłowy lub wygasł. Sprawdź klucz w Google AI Studio.")
+                elif '429' in error_str or 'quota' in error_str.lower():
+                    self.logger.error(f"❌ Gemini quota exceeded: {e}")
+                    raise RuntimeError(f"Przekroczono limit zapytań do Gemini API. Spróbuj ponownie za chwilę.")
+                else:
+                    self.logger.error(f"❌ Gemini call failed: {e}")
+                    raise
     
     def _okresl_typ_lokacji(self, miasto, akcja_tekst=""):
         """Określa typ otoczenia dla bestiariusza na podstawie miasta i akcji gracza"""
@@ -696,7 +721,10 @@ PRZYKŁADY:
         """Set the Gemini model at runtime and reconfigure the generative model object."""
         old = getattr(self, 'model_name', None)
         try:
-            self.model = genai.GenerativeModel(model_name)
+            if genai:
+                self.model = genai.GenerativeModel(model_name)
+            else:
+                self.model = None
             self.model_name = model_name
             ai_logger.info(f"🔁 GameMaster model switched from {old} -> {model_name}")
             game_log.log_admin_action('model_switch', {'from': old, 'to': model_name})
