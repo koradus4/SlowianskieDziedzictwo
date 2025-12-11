@@ -120,11 +120,16 @@ WAŻNE O "uczestnicy":
 - "wrog" (typ) = wrogowie do walki (bandyci, żołnierze wroga plemienia) - podaj hp_max (20-100)
 - "bestia" (typ) = potwory (smoki, strzygi, wilki) - podaj hp_max (30-150)
 - "npc" (typ) = neutralne postacie (kupcy, mieszkańcy, kapłani) - podaj zawód
-- Przykłady:
-  * Gracz spotyka kowala Bogdana → "uczestnicy": [{{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}}]
-  * Gracz atakowany przez wilki → "uczestnicy": [{{"imie": "Szary wilk", "typ": "bestia", "hp_max": 40}}]
-  * Gracz w karczmie z kupcem i barmanem → "uczestnicy": [{{"imie": "Dobromir", "typ": "npc", "zawod": "Kupiec"}}, {{"imie": "Wacław", "typ": "npc", "zawod": "Karczmarz"}}]
-- TYLKO jeśli gracz jest CAŁKOWICIE sam w pustym miejscu (pusty las, samotna droga) → "uczestnicy": []
+- **ZWIERZĘTA I WROGOWIE WYSTĘPUJĄ W GRUPACH!** Dodawaj KILKU przeciwników jednocześnie:
+  * Wilki polują w STADACH (2-4 wilki)
+  * Bandyci działają w BANDACH (2-3 bandytów)
+  * Strzygi występują PARAMI lub TROJKAMI
+  * Niedźwiedzie mogą być SAMOTNE (1) LUB z młodymi (2)
+- Przykłady POPRAWNE:
+  * Gracz w lesie spotyka wilki → "uczestnicy": [{{"imie": "Pierwszy Wilk", "typ": "bestia", "hp_max": 40}}, {{"imie": "Drugi Wilk", "typ": "bestia", "hp_max": 40}}, {{"imie": "Trzeci Wilk", "typ": "bestia", "hp_max": 38}}]
+  * Gracz zaatakowany przez bandytów → "uczestnicy": [{{"imie": "Bandyta z toporem", "typ": "wrog", "hp_max": 45}}, {{"imie": "Bandyta z łukiem", "typ": "wrog", "hp_max": 42}}]
+  * Gracz spotyka kowala → "uczestnicy": [{{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}}]
+- TYLKO jeśli gracz jest CAŁKOWICIE sam w pustym miejscu (pusta polana, odosobniona droga) → "uczestnicy": []
 - Usuń z listy postacie które odeszły lub zginęły
 
 WAŻNE O "towarzysze":
