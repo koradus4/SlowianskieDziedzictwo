@@ -204,14 +204,17 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
             except Exception as e:
                 # Rozpoznaj typ błędu API key vs inne
                 error_str = str(e)
-                if 'API_KEY_INVALID' in error_str or 'API key not valid' in error_str:
-                    self.logger.error(f"❌ Gemini API KEY NIEPRAWIDŁOWY: {e}")
-                    raise ValueError(f"GEMINI_API_KEY jest nieprawidłowy lub wygasł. Sprawdź klucz w Google AI Studio.")
-                elif '429' in error_str or 'quota' in error_str.lower():
+                error_type = type(e).__name__
+                
+                # Sprawdź czy to rzeczywisty błąd limitu (ResourceExhausted lub 429)
+                if error_type == 'ResourceExhausted' or '429 Resource has been exhausted' in error_str:
                     self.logger.error(f"❌ Gemini quota exceeded: {e}")
                     raise RuntimeError(f"Przekroczono limit zapytań do Gemini API. Spróbuj ponownie za chwilę.")
+                elif 'API_KEY_INVALID' in error_str or 'API key not valid' in error_str:
+                    self.logger.error(f"❌ Gemini API KEY NIEPRAWIDŁOWY: {e}")
+                    raise ValueError(f"GEMINI_API_KEY jest nieprawidłowy lub wygasł. Sprawdź klucz w Google AI Studio.")
                 else:
-                    self.logger.error(f"❌ Gemini call failed: {e}")
+                    self.logger.error(f"❌ Gemini call failed ({error_type}): {e}")
                     raise
     
     def _okresl_typ_lokacji(self, miasto, akcja_tekst=""):
