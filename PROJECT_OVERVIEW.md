@@ -214,6 +214,32 @@ python app.py
 
 ---
 
+## 16. Uruchamianie serwera w produkcji lokalnej (Windows)
+
+- Dla stabilniejszego uruchomienia lokalnie na Windows używamy `waitress` zamiast Flask dev server:
+```powershell
+.venv\Scripts\activate
+pip install -r requirements.txt
+.\start_server_waitress.ps1
+# visita: http://127.0.0.1:8080
+```
+
+- Waitress obsługuje wielowątkowość i jest bezpieczniejszy przy długich żądaniach (np. AI/timeouts), co minimalizuje problemy z reloaderem.
+
+## 17. Testy i skrypty pomocnicze
+
+- Uruchamianie testów jednostkowych (pytest):
+```powershell
+.venv\Scripts\activate
+pip install -r requirements.txt
+pytest -q
+```
+
+- Skrypt integracyjny `scripts/integration_test.py` symuluje podstawowy flow: tworzenie postaci, akcja, lista zapisów i klienta timeoutowego na `/debug/slow`.
+
+
+---
+
 ## 15. Najważniejsze edge case'y i dlaczego system działa
 
 - **Duplicate Names**: Fixed by `uid` per participant — previously, 2 identyczne imiona dzieliły HP

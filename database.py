@@ -78,6 +78,7 @@ class Database:
                     statystyki {text_type},
                     ekwipunek {text_type},
                     towarzysze {text_type},
+                    przeciwnicy_hp {text_type},
                     lokacja {text_type} DEFAULT 'gniezno',
                     created_at {timestamp_default}
                 )
@@ -88,6 +89,13 @@ class Database:
             # Migracja - dodaj kolumnę towarzysze jeśli nie istnieje
             try:
                 cursor.execute("ALTER TABLE postacie ADD COLUMN towarzysze TEXT")
+                conn.commit()
+            except:
+                conn.rollback()  # Rollback jeśli kolumna już istnieje
+            
+            # Migracja - dodaj kolumnę przeciwnicy_hp jeśli nie istnieje
+            try:
+                cursor.execute("ALTER TABLE postacie ADD COLUMN przeciwnicy_hp TEXT")
                 conn.commit()
             except:
                 conn.rollback()  # Rollback jeśli kolumna już istnieje
@@ -163,8 +171,8 @@ class Database:
         
         base_query = f"""
             INSERT INTO postacie 
-            (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, lokacja)
-            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, przeciwnicy_hp, lokacja)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
         """
         
         params = (
@@ -180,6 +188,7 @@ class Database:
             json.dumps(postac.get('statystyki', {})),
             json.dumps(postac.get('ekwipunek', [])),
             json.dumps(postac.get('towarzysze', [])),
+            json.dumps(postac.get('przeciwnicy_hp', {})),
             postac.get('lokacja', 'gniezno')
         )
 
@@ -207,6 +216,12 @@ class Database:
         if not row:
             return None
         
+        # PostgreSQL może zwrócić dict (RealDictCursor), sqlite3.Row działa jak mapping, ale nie ma .get()
+        if isinstance(row, dict):
+            przeciwnicy_hp_raw = row.get('przeciwnicy_hp')
+        else:
+            przeciwnicy_hp_raw = row['przeciwnicy_hp'] if 'przeciwnicy_hp' in row.keys() else None
+
         return {
             'id': row['id'],
             'imie': row['imie'],
@@ -221,6 +236,7 @@ class Database:
             'statystyki': json.loads(row['statystyki']) if row['statystyki'] else {},
             'ekwipunek': json.loads(row['ekwipunek']) if row['ekwipunek'] else [],
             'towarzysze': json.loads(row['towarzysze']) if row['towarzysze'] else [],
+            'przeciwnicy_hp': json.loads(przeciwnicy_hp_raw) if przeciwnicy_hp_raw else {},
             'lokacja': row['lokacja']
         }
     
@@ -238,7 +254,7 @@ class Database:
             if klucz in ['hp', 'zloto', 'poziom', 'doswiadczenie', 'lokacja']:
                 ustawienia.append(f"{klucz} = {ph}")
                 wartosci.append(wartosc)
-            elif klucz in ['statystyki', 'ekwipunek', 'towarzysze']:
+            elif klucz in ['statystyki', 'ekwipunek', 'towarzysze', 'przeciwnicy_hp']:
                 ustawienia.append(f"{klucz} = {ph}")
                 wartosci.append(json.dumps(wartosc))
         
@@ -249,12 +265,15 @@ class Database:
             zapytanie = f"UPDATE postacie SET {', '.join(ustawienia)} WHERE id = {ph}"
             print(f"🔧 SQL: {zapytanie}")
             cursor.execute(zapytanie, wartosci)
-            print(f"🔧 Zaktualizowano {cursor.rowcount} wierszy")
+            rowcount = cursor.rowcount
+            print(f"🔧 Zaktualizowano {rowcount} wierszy")
             conn.commit()
+            return rowcount
         else:
             print(f"❌ BRAK USTAWIEŃ - nic nie zapisano!")
         
         conn.close()
+        return 0
     
     def zapisz_historie(self, postac_id: int, akcja: str, odpowiedz: str):
         """Zapisuje wpis historii"""

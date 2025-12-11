@@ -666,7 +666,7 @@ def zapisz_gre():
             return jsonify({'ok': False, 'error': 'Brak danych postaci w sesji'})
         
         # Zapisz postać do bazy (bez json.dumps - database.py to robi)
-        db.aktualizuj_postac(postac_id, {
+        rows = db.aktualizuj_postac(postac_id, {
             'hp': postac.get('hp', 100),
             'lokacja': postac.get('lokacja', 'gniezno'),
             'zloto': postac.get('zloto', 0),
@@ -674,6 +674,11 @@ def zapisz_gre():
             'towarzysze': postac.get('towarzysze', []),
             'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
         })
+        if rows == 0:
+            logger.warning(f"⚠️ Aktualizacja postaci zwróciła 0 wierszy (postac_id={postac_id}). Tworzę nowy zapis.")
+            new_id = db.zapisz_postac(postac)
+            session['postac_id'] = new_id
+            logger.info(f"🔁 Nowy zapis utworzony z ID: {new_id}")
         
         # Usuń najstarsze zapisy jeśli > 10
         usuniete = db.usun_najstarsze_zapisy(limit=10)
@@ -888,13 +893,18 @@ def rozpocznij_przygode():
         logger.error("❌ KRYTYCZNY: Brak postac_id przy rozpoczęciu gry!")
         return jsonify({'error': 'Brak ID postaci - odśwież stronę i spróbuj ponownie'}), 500
     
-    db.aktualizuj_postac(postac_id, {
+    rows = db.aktualizuj_postac(postac_id, {
         'hp': postac.get('hp', hp),
         'zloto': postac.get('zloto', 0),
         'ekwipunek': postac.get('ekwipunek', []),
         'towarzysze': towarzysze,
         'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
     })
+    if rows == 0:
+        logger.warning(f"⚠️ Aktualizacja postaci przy rozpoczęciu gry zwróciła 0 wierszy (postac_id={postac_id}). Tworzę nowy zapis.")
+        new_id = db.zapisz_postac(postac)
+        session['postac_id'] = new_id
+        logger.info(f"🔁 Nowy zapis utworzony z ID: {new_id}")
     db.zapisz_historie(postac_id, "ROZPOCZĘCIE GRY", narracja)
     
     session.modified = True
@@ -1093,7 +1103,7 @@ def akcja():
         logger.error("❌ KRYTYCZNY: Brak postac_id podczas akcji gracza!")
         return jsonify({'error': 'Sesja wygasła - wróć do menu głównego'}), 401
     
-    db.aktualizuj_postac(postac_id, {
+    rows = db.aktualizuj_postac(postac_id, {
         'hp': postac['hp'], 
         'lokacja': postac.get('lokacja', 'gniezno'),
         'zloto': postac.get('zloto', 0),
@@ -1102,6 +1112,11 @@ def akcja():
         'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
     })
     db.zapisz_historie(postac_id, akcja_gracza, narracja)
+    if rows == 0:
+        logger.warning(f"⚠️ Aktualizacja postaci podczas akcji zwróciła 0 wierszy (postac_id={postac_id}). Tworzę nowy zapis.")
+        new_id = db.zapisz_postac(postac)
+        session['postac_id'] = new_id
+        logger.info(f"🔁 Nowy zapis utworzony z ID: {new_id}")
     
     # AUTO-LOGOWANIE WYDARZEŃ
     try:
@@ -1423,10 +1438,16 @@ def wymien_przedmiot():
     session['postac'] = postac
     session.modified = True
     
-    db.aktualizuj_postac(session.get('postac_id'), {
+    rows = db.aktualizuj_postac(session.get('postac_id'), {
         'ekwipunek': ekwipunek_gracza,
         'towarzysze': towarzysze
     })
+    if rows == 0:
+        pid = session.get('postac_id')
+        logger.warning(f"⚠️ Aktualizacja ekwipunku/towarzyszy zwróciła 0 wierszy (postac_id={pid}). Tworzę nowy zapis.")
+        new_id = db.zapisz_postac(postac)
+        session['postac_id'] = new_id
+        logger.info(f"🔁 Nowy zapis utworzony z ID: {new_id}")
     
     return jsonify({
         "sukces": True,
