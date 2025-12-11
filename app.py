@@ -670,7 +670,8 @@ def zapisz_gre():
             'lokacja': postac.get('lokacja', 'gniezno'),
             'zloto': postac.get('zloto', 0),
             'ekwipunek': postac.get('ekwipunek', []),
-            'towarzysze': postac.get('towarzysze', [])
+            'towarzysze': postac.get('towarzysze', []),
+            'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
         })
         
         # Usuń najstarsze zapisy jeśli > 10
@@ -701,17 +702,21 @@ def lista_zapisow():
 def usun_zapis(postac_id):
     """Usuwa zapisaną grę"""
     try:
+        logger.info(f"🗑️ Próba usunięcia zapisu ID: {postac_id}")
         sukces = db.usun_postac(postac_id)
         
         if sukces:
-            logger.info(f"🗑️ Usunięto zapis ID: {postac_id}")
-            return jsonify({'ok': True, 'message': 'Zapis usunięty'})
+            logger.info(f"✅ Usunięto zapis ID: {postac_id}")
+            game_log.log_blad('DELETE_SAVE', f'Usunięto zapis {postac_id}', {'postac_id': postac_id, 'success': True})
+            return jsonify({'ok': True, 'message': f'Zapis #{postac_id} usunięty pomyślnie'})
         else:
-            return jsonify({'ok': False, 'error': 'Nie znaleziono zapisu'})
+            logger.warning(f"⚠️ Nie znaleziono zapisu ID: {postac_id}")
+            return jsonify({'ok': False, 'error': f'Nie znaleziono zapisu #{postac_id}'})
             
     except Exception as e:
-        logger.error(f"❌ Błąd usuwania zapisu: {e}")
-        return jsonify({'ok': False, 'error': str(e)})
+        logger.error(f"❌ Błąd usuwania zapisu {postac_id}: {e}")
+        game_log.log_blad('DELETE_SAVE', str(e), {'postac_id': postac_id})
+        return jsonify({'ok': False, 'error': f'Błąd: {str(e)}'})
 
 
 @app.route('/wczytaj_zapis/<int:postac_id>')
@@ -730,6 +735,7 @@ def wczytaj_zapis(postac_id):
         session['postac'] = postac
         session['postac_id'] = postac_id
         session['historia'] = db.wczytaj_historie(postac_id, limit=100)
+        session['przeciwnicy_hp'] = postac.get('przeciwnicy_hp', {})
         session.modified = True  # Wymuś zapis sesji
         
         # Przywróć kontekst AI
@@ -885,7 +891,8 @@ def rozpocznij_przygode():
         'hp': postac.get('hp', hp),
         'zloto': postac.get('zloto', 0),
         'ekwipunek': postac.get('ekwipunek', []),
-        'towarzysze': towarzysze
+        'towarzysze': towarzysze,
+        'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
     })
     db.zapisz_historie(postac_id, "ROZPOCZĘCIE GRY", narracja)
     
@@ -1074,7 +1081,8 @@ def akcja():
         'lokacja': postac.get('lokacja', 'gniezno'),
         'zloto': postac.get('zloto', 0),
         'ekwipunek': postac.get('ekwipunek', []),
-        'towarzysze': postac.get('towarzysze', [])
+        'towarzysze': postac.get('towarzysze', []),
+        'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
     })
     db.zapisz_historie(postac_id, akcja_gracza, narracja)
     
@@ -1182,6 +1190,31 @@ def audio(filename):
 def postac_info():
     """Zwraca dane postaci"""
     return jsonify(session.get('postac', {}))
+
+
+@app.route('/health')
+def health():
+    """Healthcheck - prosty endpoint do sprawdzenia żywotności aplikacji"""
+    try:
+        # Prosty check DB
+        _ = db.lista_postaci(limit=1)
+        return jsonify({'status': 'ok'}), 200
+    except Exception as e:
+        logger.error(f"❌ Healthcheck failed: {e}")
+        return jsonify({'status': 'error', 'detail': str(e)}), 500
+
+
+# Globalny handler wyjątków - loguj i zwróć przyjazny JSON
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    tb = traceback.format_exc()
+    logger.error(f"❌ Nieobsłużony wyjątek: {e}\n{tb}")
+    game_log.log_blad('Unhandled', str(e), {'trace': tb})
+    # Jeśli to błąd połączenia z Gemini/timeout zwróć 503
+    if isinstance(e, TimeoutError):
+        return jsonify({'error': 'Timeout zewnętrznego serwisu, spróbuj ponownie'}), 503
+    return jsonify({'error': 'Wewnętrzny błąd serwera'}), 500
 
 
 @app.route('/logi')
@@ -1382,5 +1415,5 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') != 'production'
     
-    app.run(debug=debug, host='0.0.0.0', port=port)
+    app.run(debug=False, host='0.0.0.0', port=port, use_reloader=False)
 
