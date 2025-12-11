@@ -3,7 +3,7 @@
 {% block title %}Gra - {{ postac.imie }} - Słowiańskie Dziedzictwo{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: 280px 1fr 280px 320px; gap: 15px;">
+<div style="display: grid; grid-template-columns: 300px 1fr 280px; gap: 20px;">
     
     <!-- Panel postaci (lewa kolumna) -->
     <div>
@@ -227,10 +227,8 @@
                 <p style="font-size: 0.8em;">⚔️⚔️⚔️ = słaby | ⚔️⚔️⚔️⚔️⚔️ = groźny | 💀 = śmiertelny</p>
             </div>
         </div>
-    </div>
-    
-    <!-- Panel PODPOWIEDZI (nowy - prawa krawędź) -->
-    <div style="position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto;">
+        
+        <!-- Panel PODPOWIEDZI -->
         <div class="card">
             <h2>🗺️ Podpowiedzi</h2>
             <p style="font-size: 0.75em; color: #888; margin-bottom: 10px;">Kliknij by wstawić sugestię akcji</p>
@@ -238,7 +236,7 @@
             <!-- Budynki -->
             <div style="margin-bottom: 15px;">
                 <h3 style="font-size: 0.9em; color: #c9a227; margin-bottom: 8px;">🏛️ Budynki w mieście</h3>
-                <div id="podpowiedzi-budynki" style="display: flex; flex-direction: column; gap: 5px; font-size: 0.75em;">
+                <div id="podpowiedzi-budynki" style="display: flex; flex-direction: column; gap: 5px; font-size: 0.75em; max-height: 200px; overflow-y: auto;">
                     <p style="color: #888;">Ładowanie...</p>
                 </div>
             </div>
@@ -246,7 +244,7 @@
             <!-- Lokacje standardowe -->
             <div style="margin-bottom: 15px;">
                 <h3 style="font-size: 0.9em; color: #5a9a5a; margin-bottom: 8px;">🌲 Lokacje do eksploracji</h3>
-                <div id="podpowiedzi-lokacje" style="display: flex; flex-direction: column; gap: 5px; font-size: 0.75em;">
+                <div id="podpowiedzi-lokacje" style="display: flex; flex-direction: column; gap: 5px; font-size: 0.75em; max-height: 150px; overflow-y: auto;">
                     <p style="color: #888;">Ładowanie...</p>
                 </div>
             </div>
