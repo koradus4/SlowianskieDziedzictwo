@@ -839,8 +839,9 @@ PRZYKŁADY:
                 
                 # Jeśli nie znaleziono dokładnie, szukaj częściowo (np. "Pierwszy Szary Wilk" -> "Szary Wilk")
                 if not dane_bestiariusza:
-                    from bestiary import BESTIARIUSZ
-                    for nazwa_bestiariusza in BESTIARIUSZ.keys():
+                    from bestiary import pobierz_wszystkich_przeciwnikow
+                    wszystkie_bestiariusze = pobierz_wszystkich_przeciwnikow()
+                    for nazwa_bestiariusza in wszystkie_bestiariusze.keys():
                         if nazwa_bestiariusza.lower() in imie.lower():
                             dane_bestiariusza = pobierz_przeciwnika(nazwa_bestiariusza)
                             self.logger.info(f"✅ Częściowe dopasowanie: '{imie}' → '{nazwa_bestiariusza}'")
