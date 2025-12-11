@@ -112,10 +112,22 @@ PRZYKŁAD KONKRETNY - GRACZ W LESIE SPOTYKA 3 WILKI:
 }}
 
 WAŻNE O "opcje":
-- Każda opcja musi być KRÓTKA (max 60 znaków!)
-- Używaj bezokolicznika: "Porozmawiaj z kupcem", "Udaj się do lasu"
+- Każda opcja musi być KRÓTKA (max 60 znaków!) i KOMPLETNA (pełne zdanie!)
+- Używaj trybu rozkazującego (1 osoba): "Porozmawiaj z kupcem", "Udaj się do lasu", "Rozejrzyj się"
+- NIE ŁĄCZ dwóch akcji w jedną opcję! ❌ "Idę na targ by się rozejrzeć" → ✅ "Idź na targ"
+- Używaj POPRAWNEJ POLSKIEJ GRAMATYKI:
+  * ✅ "Idź do lasu" (dopełniacz: las → lasu)
+  * ❌ "Idę do Las" (błąd - mianownik zamiast dopełniacza)
+  * ✅ "Rozejrzyj się po targu"
+  * ❌ "by się rozejrzeć" (niepełne zdanie)
 - Zawsze używaj POLSKICH ZNAKÓW: ą, ć, ę, ł, ń, ó, ś, ź, ż
-- Przykłady DOBRYCH opcji: "Przyjmij zadanie", "Zapytaj o nagrodę", "Odwiedź kuźnię"
+- Przykłady DOBRYCH opcji: 
+  * "Przyjmij zadanie", "Zapytaj o nagrodę", "Odwiedź kuźnię"
+  * "Porozmawiaj z Bogdanem", "Idź do świątyni", "Kup miksturę"
+- Przykłady ZŁYCH opcji:
+  * ❌ "Przyjmij zadanie od Żywisława i udaj się..." (za długie!)
+  * ❌ "Idę na targ by kupić" (łączy 2 akcje + niepoprawna składnia)
+  * ❌ "by się rozejrzeć" (niepełne zdanie bez podmiotu)
 - Przykłady ZŁYCH opcji: "Przyjmij zadanie od Żywisława i udaj się..." (za długie!)
 
 WAŻNE O "transakcje":
