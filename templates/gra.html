@@ -483,14 +483,18 @@
     }
     
     function aktualizujUczestnikow(uczestnicy) {
+        console.log('🔍 DEBUG - Funkcja aktualizujUczestnikow wywołana z:', uczestnicy);
         const container = document.getElementById('uczestnicy-container');
         if (!uczestnicy || uczestnicy.length === 0) {
+            console.log('⚠️ DEBUG - Brak uczestników lub pusta tablica');
             container.innerHTML = '<p style="color: #8a8a8a; font-style: italic; font-size: 0.9em;">Nikogo w pobliżu...</p>';
             return;
         }
         
+        console.log(`✅ DEBUG - Renderowanie ${uczestnicy.length} uczestników...`);
         let html = '';
-        uczestnicy.forEach(u => {
+        uczestnicy.forEach((u, index) => {
+            console.log(`  [${index+1}] ${u.imie || 'BRAK IMIENIA'} - typ: ${u.typ}, HP: ${u.hp_max}`);
             const typ = u.typ || 'npc'; // 'wrog', 'bestia', 'npc'
             const uid = u.uid || u.imie; // Unikalny identyfikator
             let ikona = '👤';
@@ -705,6 +709,8 @@
         
         // Uczestnicy akcji - ZAWSZE aktualizuj (wrogowie/NPC/bestie)
         if (data.uczestnicy !== undefined) {
+            console.log('🔍 DEBUG - Otrzymani uczestnicy z backendu:', data.uczestnicy);
+            console.log('🔍 DEBUG - Liczba uczestników:', data.uczestnicy.length);
             aktualizujUczestnikow(data.uczestnicy);
         }
         

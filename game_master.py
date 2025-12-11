@@ -512,6 +512,15 @@ PRZYKŁADY:
             response = self._call_model_with_timeout(messages, timeout=30)
             
             odpowiedz = self._parsuj_json(response.text)
+            
+            # DEBUG: Loguj uczestników
+            if 'uczestnicy' in odpowiedz:
+                self.logger.info(f"🔍 DEBUG - Liczba uczestników zwróconych przez Gemini: {len(odpowiedz['uczestnicy'])}")
+                for i, u in enumerate(odpowiedz['uczestnicy']):
+                    self.logger.info(f"  [{i+1}] {u.get('imie', 'BRAK IMIENIA')} (typ: {u.get('typ', 'BRAK')}, HP: {u.get('hp_max', 'BRAK')})")
+            else:
+                self.logger.warning("⚠️ DEBUG - Pole 'uczestnicy' NIE ISTNIEJE w odpowiedzi Gemini!")
+            
             elapsed_ms = int((time.time() - start) * 1000)
             game_log.log_gemini_response(len(response.text), elapsed_ms, model=self.model_name, success=True)
             # Jeśli MG zwrócił komunikat o limicie -> spróbuj HF fallback
@@ -519,7 +528,7 @@ PRZYKŁADY:
             if any(tok in narr for tok in ['429', 'quota', 'exceeded', 'przekroc', 'limit']):
                 if self.hf_api_token and self.hf_model:
                     try:
-                        hf_prompt = f"Jesteś Mistrzem Gry. Odpowiedz krótko po polsku na akcję gracza: {tekst_gracza}. Użyj stylu narratora."
+                        hf_prompt = f"Jesteś Mistrzem Gry. Odpowiedź krótko po polsku na akcję gracza: {tekst_gracza}. Użyj stylu narratora."
                         hf_text = self._query_hf(hf_prompt)
                         odpowiedz['narracja'] = hf_text or odpowiedz['narracja']
                     except Exception:
