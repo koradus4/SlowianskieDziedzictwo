@@ -168,6 +168,26 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         # Hugging Face fallback (opcjonalne)
         self.hf_api_token = os.getenv('HF_API_TOKEN')
         self.hf_model = os.getenv('HF_MODEL', '')
+
+    def _call_model_with_timeout(self, messages, timeout: int = 12):
+        """Wywołuje generative model w wątku i stosuje timeout, by nie blokować serwera."""
+        import concurrent.futures
+
+        def _call():
+            return self.model.generate_content(messages)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            fut = ex.submit(_call)
+            try:
+                return fut.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                fut.cancel()
+                self.logger.error(f"❌ Gemini timeout after {timeout}s")
+                game_log.log_gemini_response(0, timeout * 1000, model=self.model_name, success=False, error='timeout')
+                raise TimeoutError(f"Gemini timeout after {timeout}s")
+            except Exception as e:
+                self.logger.error(f"❌ Gemini call failed: {e}")
+                raise
     
     def _okresl_typ_lokacji(self, miasto, akcja_tekst=""):
         """Określa typ otoczenia dla bestiariusza na podstawie miasta i akcji gracza"""
@@ -282,11 +302,13 @@ Pamiętaj o formacie JSON!"""
             
             # Bez JSON Schema - problemy z Gemini 2.5 Flash
             # Polegamy na auto-naprawie w _parsuj_json()
-            response = self.model.generate_content(
+            # Wywołaj model z timeoutem, aby uniknąć blokowania serwera
+            response = self._call_model_with_timeout(
                 [
                     {"role": "user", "parts": [system_prompt_z_lokacjami]},
                     {"role": "user", "parts": [prompt]}
-                ]
+                ],
+                timeout=12
             )
             
             # DEBUGOWANIE: Zaloguj surowy response
@@ -456,7 +478,8 @@ PRZYKŁADY:
             
             # Bez JSON Schema - problemy z Gemini 2.5 Flash
             # Polegamy na auto-naprawie w _parsuj_json()
-            response = self.model.generate_content(messages)
+            # Wywołaj model z timeoutem, aby uniknąć blokowania serwera
+            response = self._call_model_with_timeout(messages, timeout=10)
             
             odpowiedz = self._parsuj_json(response.text)
             elapsed_ms = int((time.time() - start) * 1000)

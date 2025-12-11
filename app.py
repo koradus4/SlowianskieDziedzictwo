@@ -970,6 +970,22 @@ def akcja():
     # Użyj nowego API GameMaster z aktualnym stanem + lista przedmiotów
     try:
         wynik = game_master.akcja(akcja_gracza, stan_gracza, lista_przedmiotow)
+    except TimeoutError as e:
+        logger.error(f"❌ Timeout podczas akcji (GameMaster): {e}")
+        game_log.log_blad('GameMaster', str(e), {'endpoint': 'akcja', 'akcja': akcja_gracza})
+        tekst = "⚠️ Serwis AI (Mistrz Gry) nie odpowiada. Spróbuj ponownie za chwilę."
+        return jsonify({
+            'tekst': tekst,
+            'audio': None,
+            'lokacja': stan_gracza.get('lokacja', 'nieznana'),
+            'towarzysze': stan_gracza.get('towarzysze', []),
+            'opcje': ['Spróbuj ponownie'],
+            'quest_aktywny': None,
+            'hp_gracza': stan_gracza.get('hp', 100),
+            'zloto': stan_gracza.get('zloto', 0),
+            'ekwipunek': session.get('postac', {}).get('ekwipunek', []),
+            'ladownosc': {'zajete': len(session.get('postac', {}).get('ekwipunek', [])), 'max': 10}
+        }), 503
     except Exception as e:
         logger.error(f"❌ Błąd podczas akcji (GameMaster): {e}")
         game_log.log_blad('GameMaster', str(e), {'endpoint': 'akcja', 'akcja': akcja_gracza})
@@ -1075,7 +1091,7 @@ def akcja():
     postac_id = session.get('postac_id')
     if not postac_id:
         logger.error("❌ KRYTYCZNY: Brak postac_id podczas akcji gracza!")
-        return jsonify({'error': 'Sesja wygasła - wróć do menu głównego'}), 500
+        return jsonify({'error': 'Sesja wygasła - wróć do menu głównego'}), 401
     
     db.aktualizuj_postac(postac_id, {
         'hp': postac['hp'], 
