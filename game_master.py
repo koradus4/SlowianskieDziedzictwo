@@ -93,6 +93,19 @@ Zawsze odpowiadaj w formacie JSON:
         "przedmioty_usuniete": ["Nazwa przedmiotu3"]
     }},
     "opcje": ["opcja1", "opcja2", "opcja3"],
+
+PRZYKŁAD KONKRETNY - GRACZ W LESIE SPOTYKA 3 WILKI:
+{{
+    "narracja": "**Narrator:** Wchodzisz w gęsty las. Nagle słyszysz warknięcie - z krzaków wyskakują trzy szare wilki!",
+    "lokacja": "Las",
+    "hp_gracza": 29,
+    "towarzysze": [],
+    "uczestnicy": [
+        {{"imie": "Pierwszy Wilk", "typ": "bestia", "hp_max": 40}},
+        {{"imie": "Drugi Wilk", "typ": "bestia", "hp_max": 38}},
+        {{"imie": "Trzeci Wilk", "typ": "bestia", "hp_max": 42}}
+    ],
+    "opcje": ["Zaatakuj wilki", "Spróbuj uciec", "Wdrap się na drzewo"],
     "quest_aktywny": "Opis aktywnego zadania lub null",
     "walka": false,
     "artefakty_zebrane": []
@@ -115,6 +128,8 @@ WAŻNE O "transakcje":
 - Używaj tylko przedmiotów z listy dostępnych przedmiotów podanej w kontekście!
 
 WAŻNE O "uczestnicy":
+- ⚠️ **KRYTYCZNE: Jeśli w narracji piszesz o wilkach/bandytach/potworach/NPC - MUSISZ ich dodać do "uczestnicy"!**
+- ⚠️ **NIGDY nie pozostawiaj "uczestnicy": [] jeśli w tekście narracji są jakiekolwiek postacie/zwierzęta!**
 - **ZAWSZE WYPEŁNIAJ TO POLE** - nie pozostawiaj pustej tablicy []!
 - Dodawaj do listy wszystkie istotne postacie w bieżącej scenie
 - "wrog" (typ) = wrogowie do walki (bandyci, żołnierze wroga plemienia) - podaj hp_max (20-100)
@@ -129,6 +144,9 @@ WAŻNE O "uczestnicy":
   * Gracz w lesie spotyka wilki → "uczestnicy": [{{"imie": "Pierwszy Wilk", "typ": "bestia", "hp_max": 40}}, {{"imie": "Drugi Wilk", "typ": "bestia", "hp_max": 40}}, {{"imie": "Trzeci Wilk", "typ": "bestia", "hp_max": 38}}]
   * Gracz zaatakowany przez bandytów → "uczestnicy": [{{"imie": "Bandyta z toporem", "typ": "wrog", "hp_max": 45}}, {{"imie": "Bandyta z łukiem", "typ": "wrog", "hp_max": 42}}]
   * Gracz spotyka kowala → "uczestnicy": [{{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}}]
+- Przykłady BŁĘDNE (NIE RÓB TAK!):
+  * ❌ Narracja: "Trzy wilki wyskakują z krzaków" + "uczestnicy": [] → BŁĄD! Dodaj 3 wilki!
+  * ❌ Narracja: "Spotykasz kupca i straż" + "uczestnicy": [{{"imie": "Kupiec", ...}}] → BŁĄD! Brakuje straży!
 - TYLKO jeśli gracz jest CAŁKOWICIE sam w pustym miejscu (pusta polana, odosobniona droga) → "uczestnicy": []
 - Usuń z listy postacie które odeszły lub zginęły
 
