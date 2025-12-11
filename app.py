@@ -26,7 +26,7 @@ from tts_engine import TTSEngine
 from database import Database
 from game_logger import game_log, logger
 from items import PRZEDMIOTY, get_item, get_all_item_names
-from lokacje import pobierz_wszystkie_miasta
+from lokacje import pobierz_wszystkie_miasta, PLEMIONA
 
 app = Flask(__name__)
 app.secret_key = 'slowianski_sekret_2025'
@@ -532,6 +532,17 @@ def stworz_postac():
     klasa_data = KLASY.get(klasa, {})
     hp = 10 + statystyki.get('wytrzymalosc', 10) + klasa_data.get('bonus_hp', 0)
     
+    # Pobierz miasto odpowiadające ludowi - mapowanie lud -> plemię -> miasto
+    mapa_lud_plemie = {
+        'polanie': 'polanie',
+        'wislanie': 'wislanie',
+        'pomorzanie': 'pomorzanie',
+        'mazowszanie': 'mazowszanie',
+        'slezanie': 'slezanie'
+    }
+    plemie = mapa_lud_plemie.get(lud, 'polanie')
+    miasto = PLEMIONA.get(plemie, {}).get('miasto', 'Gniezno')
+    
     # Stwórz postać
     postac = {
         "imie": imie,
@@ -548,7 +559,7 @@ def stworz_postac():
         "zloto": random.randint(10, 30),
         "ekwipunek": ["Nóż", "Chleb", "Bukłak z wodą"],
         "umiejetnosci": klasa_data.get('umiejetnosci', []),
-        "lokacja": "gniezno",
+        "lokacja": miasto,
         "questy": ["Zjednoczenie Plemion"]
     }
     
