@@ -91,8 +91,15 @@ def stackuj_ekwipunek(ekwipunek_lista):
     return stackowane
 
 
-def przetworz_hp_przeciwnikow(uczestnicy, narracja):
-    """Przetwarza HP przeciwników - inicjalizuje nowych, aktualizuje istniejących"""
+def przetworz_hp_przeciwnikow(uczestnicy, narracja, obrazenia_data=None):
+    """
+    Przetwarza HP przeciwników - inicjalizuje nowych, aktualizuje istniejących.
+    
+    Args:
+        uczestnicy: Lista uczestników z AI
+        narracja: Tekst narracji (używany tylko jako fallback jeśli brak obrazenia_data)
+        obrazenia_data: Dict z polami 'gracz_otrzymal' i 'zadane' (preferowane źródło obrażeń)
+    """
     if 'przeciwnicy_hp' not in session:
         session['przeciwnicy_hp'] = {}
     
@@ -132,7 +139,7 @@ def przetworz_hp_przeciwnikow(uczestnicy, narracja):
                 }
                 logger.info(f"🆕 Nowy przeciwnik: {imie} ({typ}) - HP: {hp_max}/{hp_max}")
             
-            # PRIORYTET: Jeśli AI zwrócił 'hp' w JSON - użyj tego (AI sam liczy!)
+            # PRIORYTET 1: Jeśli AI zwrócił 'hp' w JSON - użyj tego
             hp_od_ai = uczestnik.get('hp')
             
             if hp_od_ai is not None:
@@ -143,26 +150,37 @@ def przetworz_hp_przeciwnikow(uczestnicy, narracja):
                     logger.info(f"🤖 AI zaktualizował HP {imie}: {hp_poprzedni} → {hp_aktualny}")
                 przeciwnicy_hp[klucz]['hp'] = hp_aktualny
             else:
-                # AI NIE podał HP - użyj regex jako fallback
+                # AI NIE podał HP - użyj pola "obrazenia" lub regex jako fallback
                 hp_aktualny = przeciwnicy_hp[klucz]['hp']
-                import re
-                wzorce_obrazen = [
-                    rf"zadajesz[^.]*?(\d+)[^.]*?(obrażeń|obrażenia)[^.]*?{imie}",
-                    rf"zadajesz[^.]*?{imie}[^.]*?(\d+)[^.]*?(obrażeń|punktów obrażeń)",
-                    rf"{imie}[^.]*?(otrzymuje|dostaje|traci)[^.]*?(\d+)[^.]*?(obrażeń|punktów obrażeń|HP|zdrowia)",
-                    rf"zadajesz[^.]*?(\d+)[^.]*?(obrażeń|obrażenia|punktów obrażeń)",
-                ]
                 
+                # PRIORYTET 2: Sprawdź pole "obrazenia" (strukturalne dane)
                 obrazenia = 0
-                for wzorzec in wzorce_obrazen:
-                    match = re.search(wzorzec, narracja, re.IGNORECASE)
-                    if match:
-                        try:
-                            obrazenia = int(match.group(2) if match.lastindex >= 2 else match.group(1))
-                            logger.info(f"💥 Regex wykrył obrażenia dla {imie}: {obrazenia} HP")
+                if obrazenia_data and 'zadane' in obrazenia_data:
+                    for obr in obrazenia_data['zadane']:
+                        if obr.get('cel', '').lower() == imie.lower():
+                            obrazenia = obr.get('wartosc', 0)
+                            logger.info(f"💥 Strukturalne obrażenia dla {imie}: {obrazenia} HP")
                             break
-                        except (ValueError, IndexError):
-                            continue
+                
+                # PRIORYTET 3: Fallback regex (jeśli brak strukturalnych danych)
+                if obrazenia == 0 and narracja:
+                    import re
+                    wzorce_obrazen = [
+                        rf"zadajesz[^.]*?(\d+)[^.]*?(obrażeń|obrażenia)[^.]*?{imie}",
+                        rf"zadajesz[^.]*?{imie}[^.]*?(\d+)[^.]*?(obrażeń|punktów obrażeń)",
+                        rf"{imie}[^.]*?(otrzymuje|dostaje|traci)[^.]*?(\d+)[^.]*?(obrażeń|punktów obrażeń|HP|zdrowia)",
+                        rf"zadajesz[^.]*?(\d+)[^.]*?(obrażeń|obrażenia|punktów obrażeń)",
+                    ]
+                    
+                    for wzorzec in wzorce_obrazen:
+                        match = re.search(wzorzec, narracja, re.IGNORECASE)
+                        if match:
+                            try:
+                                obrazenia = int(match.group(2) if match.lastindex >= 2 else match.group(1))
+                                logger.info(f"💥 Regex wykrył obrażenia dla {imie}: {obrazenia} HP")
+                                break
+                            except (ValueError, IndexError):
+                                continue
                 
                 if obrazenia > 0:
                     hp_aktualny = max(0, hp_aktualny - obrazenia)
@@ -1253,7 +1271,8 @@ def akcja():
     
     # SYSTEM HP PRZECIWNIKÓW
     uczestnicy_raw = wynik.get('uczestnicy', [])
-    uczestnicy_z_hp = przetworz_hp_przeciwnikow(uczestnicy_raw, narracja)
+    obrazenia_data = wynik.get('obrazenia')  # Pobierz strukturalne dane o obrażeniach
+    uczestnicy_z_hp = przetworz_hp_przeciwnikow(uczestnicy_raw, narracja, obrazenia_data)
     
     return jsonify({
         "tekst": narracja,

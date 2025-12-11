@@ -85,8 +85,15 @@ Zawsze odpowiadaj w formacie JSON:
     "uczestnicy": [
         {{"imie": "Bogdan", "typ": "npc", "zawod": "Kowal"}},
         {{"imie": "Żywisław", "typ": "npc", "zawod": "Kapłan"}},
-        {{"imie": "Wilk", "typ": "bestia", "hp_max": 40}}
+        {{"imie": "Wilk", "typ": "bestia", "hp_max": 40, "hp": 40}}
     ],
+    "obrazenia": {{
+        "gracz_otrzymal": liczba (ile HP stracił gracz, 0 jeśli brak ataku),
+        "zadane": [
+            {{"cel": "Imię przeciwnika", "wartosc": liczba}},
+            {{"cel": "Imię przeciwnika2", "wartosc": liczba}}
+        ]
+    }},
     "transakcje": {{
         "zloto_zmiana": liczba (ujemna = wydatek, dodatnia = zarobek, 0 = brak),
         "przedmioty_dodane": ["Nazwa przedmiotu1", "Nazwa przedmiotu2"],
@@ -101,14 +108,33 @@ PRZYKŁAD KONKRETNY - GRACZ W LESIE SPOTYKA 3 WILKI:
     "hp_gracza": 29,
     "towarzysze": [],
     "uczestnicy": [
-        {{"imie": "Pierwszy Wilk", "typ": "bestia", "hp_max": 40}},
-        {{"imie": "Drugi Wilk", "typ": "bestia", "hp_max": 38}},
-        {{"imie": "Trzeci Wilk", "typ": "bestia", "hp_max": 42}}
+        {{"imie": "Pierwszy Wilk", "typ": "bestia", "hp_max": 40, "hp": 40}},
+        {{"imie": "Drugi Wilk", "typ": "bestia", "hp_max": 38, "hp": 38}},
+        {{"imie": "Trzeci Wilk", "typ": "bestia", "hp_max": 42, "hp": 42}}
     ],
     "opcje": ["Zaatakuj wilki", "Spróbuj uciec", "Wdrap się na drzewo"],
     "quest_aktywny": "Opis aktywnego zadania lub null",
     "walka": false,
     "artefakty_zebrane": []
+}}
+
+PRZYKŁAD WALKI - GRACZ ATAKUJE WILKA:
+{{
+    "narracja": "**Narrator:** Wymachujesz mieczem i trafiasz wilka w bok!\n\n**Pierwszy Wilk:** *Wilk warknie z bólu i rzuca się na ciebie, drapiąc pazurami!*",
+    "lokacja": "Las",
+    "hp_gracza": 73,
+    "uczestnicy": [
+        {{"imie": "Pierwszy Wilk", "typ": "bestia", "hp_max": 40, "hp": 25}},
+        {{"imie": "Drugi Wilk", "typ": "bestia", "hp_max": 38, "hp": 38}}
+    ],
+    "obrazenia": {{
+        "gracz_otrzymal": 12,
+        "zadane": [
+            {{"cel": "Pierwszy Wilk", "wartosc": 15}}
+        ]
+    }},
+    "opcje": ["Dobij rannego wilka", "Zaatakuj drugiego wilka", "Uciekaj"],
+    "walka": true
 }}
 
 WAŻNE O "opcje":
@@ -130,6 +156,22 @@ WAŻNE O "opcje":
   * ❌ "by się rozejrzeć" (niepełne zdanie bez podmiotu)
 - Przykłady ZŁYCH opcji: "Przyjmij zadanie od Żywisława i udaj się..." (za długie!)
 
+WAŻNE O "obrazenia":
+- **KRYTYCZNE:** Pole "obrazenia" jest OBOWIĄZKOWE podczas walki/ataku!
+- **TY NIE DECYDUJESZ o śmierci!** Backend sprawdzi czy HP <= 0 i usunie przeciwnika
+- ⚠️ **ZAKAZ:** NIE pisz w narracji "zabijasz wilka" / "przeciwnik ginie" dopóki NIE jest już martwy w kontekście!
+- Jeśli gracz ATAKUJE:
+  * Podaj "gracz_otrzymal": 0-25 (ile HP stracił gracz od kontrataku)
+  * Podaj "zadane": [{"cel": "Imię przeciwnika", "wartosc": 8-20}] (ile HP zadał przeciwnik)
+- Jeśli gracz NIE atakuje (rozmowa, eksploracja): pomiń pole "obrazenia" całkowicie
+- **Obrażenia gracza:** Typowy atak wroga: 8-15 HP, silny atak: 18-25 HP, słaby: 3-7 HP
+- **Obrażenia wroga:** Typowy atak gracza: 10-18 HP, krytyczny cios: 20-30 HP, pudło: 0-5 HP
+- **PRZYKŁAD POPRAWNY:**
+  * Gracz atakuje wilka (40/40 HP) → hp_gracza: 73 (był 85), uczestnicy: [{"imie": "Wilk", "hp": 22, "hp_max": 40}], obrazenia: {"gracz_otrzymal": 12, "zadane": [{"cel": "Wilk", "wartosc": 18}]}
+- **PRZYKŁAD BŁĘDNY:**
+  * ❌ Narracja: "Zabijasz wilka jednym ciosem!" + hp: 25 → BŁĄD! Wilk ma 25 HP, nie możesz pisać że zginął!
+  * ❌ Tylko tekst w narracji bez pola "obrazenia" → BŁĄD! Backend nie odejmie HP!
+
 WAŻNE O "transakcje":
 - Używaj TYLKO gdy gracz kupuje/sprzedaje/otrzymuje/traci przedmioty lub złoto
 - Jeśli gracz kupuje przedmiot: zloto_zmiana = -cena (np. -30), przedmioty_dodane = ["Mikstura lecznicza"]
@@ -144,9 +186,11 @@ WAŻNE O "uczestnicy":
 - ⚠️ **NIGDY nie pozostawiaj "uczestnicy": [] jeśli w tekście narracji są jakiekolwiek postacie/zwierzęta!**
 - **ZAWSZE WYPEŁNIAJ TO POLE** - nie pozostawiaj pustej tablicy []!
 - Dodawaj do listy wszystkie istotne postacie w bieżącej scenie
-- "wrog" (typ) = wrogowie do walki (bandyci, żołnierze wroga plemienia) - podaj hp_max (20-100)
-- "bestia" (typ) = potwory (smoki, strzygi, wilki) - podaj hp_max (30-150)
+- "wrog" (typ) = wrogowie do walki (bandyci, żołnierze wroga plemienia) - podaj hp_max i hp
+- "bestia" (typ) = potwory (smoki, strzygi, wilki) - podaj hp_max i hp
 - "npc" (typ) = neutralne postacie (kupcy, mieszkańcy, kapłani) - podaj zawód
+- **DLA NOWYCH przeciwników:** Ustaw hp = hp_max (pełne zdrowie)
+- **DLA ISTNIEJĄCYCH przeciwników:** Odejmij obrażenia od ich aktualnego HP (sprawdź w kontekście!)
 - **ZWIERZĘTA I WROGOWIE WYSTĘPUJĄ W GRUPACH!** Dodawaj KILKU przeciwników jednocześnie:
   * Wilki polują w STADACH (2-4 wilki)
   * Bandyci działają w BANDACH (2-3 bandytów)
