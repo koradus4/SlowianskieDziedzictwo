@@ -235,7 +235,11 @@
 <script>
     function zapiszGre() {
         console.log('💾 Próba zapisu gry...');
-        fetch('/zapisz_gre', {method: 'POST'})
+            fetch('/zapisz_gre', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ akcja: 'zapisz' })
+            })
             .then(r => r.json())
             .then(data => {
                 console.log('💾 Odpowiedź zapisu:', data);
@@ -259,8 +263,11 @@
         modal.style.display = 'block';
         lista.innerHTML = '<p style="color: #888;">Ładowanie zapisów...</p>';
         
-        try {
-            const response = await fetch('/lista_zapisow');
+            try {
+                const response = await fetch('/lista_zapisow', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
             const data = await response.json();
             
             if (data.zapisy && data.zapisy.length > 0) {
@@ -309,12 +316,16 @@
             const data = await response.json();
             
             if (data.ok) {
+                console.log('✅ Usunięto zapis:', data.message);
+                alert('✅ ' + data.message);
                 pokazZapisy(); // Odśwież listę
             } else {
-                alert('Błąd usuwania zapisu!');
+                console.error('❌ Błąd usuwania:', data.error);
+                alert('❌ ' + (data.error || 'Błąd usuwania zapisu!'));
             }
         } catch (e) {
-            alert('Błąd połączenia!');
+            console.error('❌ Błąd połączenia:', e);
+            alert('❌ Błąd połączenia!');
         }
     }
     
@@ -715,25 +726,34 @@
                                   <p><em>Mistrz Gry przemyśla twój ruch...</em></p>`;
         
         try {
+            // Użyj AbortController, żeby móc przerwać żądanie po 15s
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
             const response = await fetch('/akcja', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ akcja: tekst })
+                body: JSON.stringify({ akcja: tekst }),
+                signal: controller.signal
             });
-            
+            clearTimeout(timeoutId);
+
             const data = await response.json();
-            
+
+            // Autosave feedback
+            console.log('💾 Autosave: stan gry zapisany');
+
             // Użyj wyswietlOdpowiedz do wyświetlenia pełnej odpowiedzi (narracja, audio, HP, złoto, ekwipunek, opcje itp.)
             wyswietlOdpowiedz(data);
-            
+
             // Dodaj akcję gracza NAD naracją (prepend)
             const narrativeBox = document.getElementById('narrative-text');
             const currentContent = narrativeBox.innerHTML;
             narrativeBox.innerHTML = `<p style="color: #5a9a5a; margin-bottom: 15px;">➤ <em>Ty: ${tekst}</em></p>` + currentContent;
-            
+
             // wyswietlOdpowiedz już aktualizuje HP, złoto, ekwipunek, towarzyszy, lokację i opcje
             // Poniższe duplikaty usunięte - funkcja wyswietlOdpowiedz robi to wszystko
-            
+
             // Dodatkowe aktualizacje specyficzne dla akcji (jeśli potrzebne):
             // AKTUALIZUJ HP - już w wyswietlOdpowiedz, ale zostawiam dla pewności
             if (data.hp_gracza !== undefined) {
@@ -840,12 +860,21 @@
             
         } catch (e) {
             console.error('❌ Błąd w wykonajAkcje():', e);
-            narrativeBox.innerHTML = `
-                <div style="padding:12px; border-radius:8px; background: rgba(220,53,69,0.1); border: 1px solid rgba(220,53,69,0.3); color:#dc3545;">
-                    <strong>⚠️ Błąd podczas wykonywania akcji</strong><br>
-                    <span style="font-size:0.9em;">${e.message || 'Błąd połączenia'}</span>
-                </div>
-            `;
+            if (e.name === 'AbortError') {
+                narrativeBox.innerHTML = `
+                    <div style="padding:12px; border-radius:8px; background: rgba(220,53,69,0.1); border: 1px solid rgba(220,53,69,0.3); color:#dc3545;">
+                        <strong>⚠️ Przekroczono czas oczekiwania na serwer (timeout)</strong><br>
+                        <span style="font-size:0.9em;">Spróbuj ponownie za kilka sekund</span>
+                    </div>
+                `;
+            } else {
+                narrativeBox.innerHTML = `
+                    <div style="padding:12px; border-radius:8px; background: rgba(220,53,69,0.1); border: 1px solid rgba(220,53,69,0.3); color:#dc3545;">
+                        <strong>⚠️ Błąd podczas wykonywania akcji</strong><br>
+                        <span style="font-size:0.9em;">${e.message || 'Błąd połączenia'}</span>
+                    </div>
+                `;
+            }
         }
         
         document.getElementById('loading').style.display = 'none';
