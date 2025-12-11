@@ -282,8 +282,10 @@ NPC W MIEŚCIE (przykłady - aby poznać szczegóły, wejdź do budynku):"""
         self.hp_max = postac.get('hp_max', self.aktualne_hp)
         
         # Pobierz miasto startowe z plemienia
-        plemie = postac.get('plemie', 'Polanie')
-        miasto_startowe = PLEMIONA.get(plemie.lower(), PLEMIONA['polanie'])['miasto']
+        plemie = postac.get('plemie') or postac.get('lud') or 'Polanie'
+        # Obsłuż zarówno "Polanie" jak i "polanie"
+        plemie_key = plemie.lower() if plemie else 'polanie'
+        miasto_startowe = PLEMIONA.get(plemie_key, PLEMIONA['polanie'])['miasto']
         
         # Generuj kontekst lokacji dla miasta startowego
         kontekst_lokacji = self._generuj_kontekst_lokacji(miasto_startowe)
