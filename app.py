@@ -3,7 +3,8 @@ Słowiańskie Dziedzictwo - Gra Fabularna
 Flask + Gemini AI + Piper TTS
 """
 
-from flask import Flask, render_template, request, jsonify, session, send_file
+from flask import Flask, render_template, request, session, jsonify, send_file
+from werkzeug.exceptions import HTTPException
 from flask_session import Session
 import sqlite3
 import random
@@ -1220,6 +1221,10 @@ def handle_exception(e):
     logger.error(f"❌ Nieobsłużony wyjątek: {e}\n{tb}")
     game_log.log_blad('Unhandled', str(e), {'trace': tb})
     # Jeśli to błąd połączenia z Gemini/timeout zwróć 503
+    # Pozwól HTTPException przejść (np. 404) — nie traktujemy jej jako 500
+    if isinstance(e, HTTPException):
+        return e
+
     if isinstance(e, TimeoutError):
         return jsonify({'error': 'Timeout zewnętrznego serwisu, spróbuj ponownie'}), 503
     return jsonify({'error': 'Wewnętrzny błąd serwera'}), 500
