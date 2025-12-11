@@ -335,7 +335,7 @@ Pamiętaj o formacie JSON!"""
                     {"role": "user", "parts": [system_prompt_z_lokacjami]},
                     {"role": "user", "parts": [prompt]}
                 ],
-                timeout=12
+                timeout=30
             )
             
             # DEBUGOWANIE: Zaloguj surowy response
@@ -506,7 +506,7 @@ PRZYKŁADY:
             # Bez JSON Schema - problemy z Gemini 2.5 Flash
             # Polegamy na auto-naprawie w _parsuj_json()
             # Wywołaj model z timeoutem, aby uniknąć blokowania serwera
-            response = self._call_model_with_timeout(messages, timeout=10)
+            response = self._call_model_with_timeout(messages, timeout=30)
             
             odpowiedz = self._parsuj_json(response.text)
             elapsed_ms = int((time.time() - start) * 1000)
