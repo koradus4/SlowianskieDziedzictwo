@@ -210,107 +210,147 @@ PLEMIONA = {
 }
 
 # ============================================================================
-# WARSTWA 3: LOKACJE POMOCNICZE
+# WARSTWA 3: LOKACJE STANDARDOWE (występują przy każdym mieście)
 # ============================================================================
 
-LOKACJE_POMOCNICZE = {
-    "las_gnieznianski": {
+LOKACJE_STANDARDOWE = {
+    "las": {
         "typ": "las",
-        "nazwa": "Las Gnieznieński",
-        "opis": "Gęsty bór pełen zwierzyny i tajemnic. Stare dęby kryją śladyślężańskich rytów.",
-        "pobliska_lokacja": "Gniezno",
-        "zasoby": ["drewno", "zioła", "zwierzyna"],
+        "ikona": "🌲",
+        "nazwa": "Las",
+        "opis": "Gęsty bór pełen zwierzyny i tajemnic.",
         "niebezpieczenstwo": "średnie"
     },
-    "bagna_goplo": {
-        "typ": "bagna",
-        "nazwa": "Bagna koło Gopła",
-        "opis": "Mglistebagna pełne niebezpieczeństw. Mówi się, że żyją tu strzygi i utopce.",
-        "pobliska_lokacja": "Gniezno",
-        "zasoby": ["zioła rzadkie", "ryby"],
-        "niebezpieczenstwo": "wysokie"
-    },
-    "gory_karpaty": {
-        "typ": "góry",
-        "nazwa": "Karpaty",
-        "opis": "Wysokie szczyty porośnięte lasami. Tu mieszkają górali i starzy bogowie.",
-        "pobliska_lokacja": "Kraków",
-        "zasoby": ["rudy metali", "kamień", "schronienie"],
-        "niebezpieczenstwo": "średnie"
-    },
-    "wisla_rzeka": {
+    "rzeka": {
         "typ": "rzeka",
-        "nazwa": "Rzeka Wisła",
-        "opis": "Wielka rzeka Polski. Szlak handlowy i naturalny gród.",
-        "pobliska_lokacja": "Kraków",
-        "zasoby": ["ryby", "transport", "woda"],
+        "ikona": "🌊",
+        "nazwa": "Rzeka",
+        "opis": "Płynąca woda, ryby i przeprawy.",
         "niebezpieczenstwo": "niskie"
     },
-    "morze_baltyckie": {
-        "typ": "morze",
-        "nazwa": "Morze Bałtyckie",
-        "opis": "Zimne wody pełne niebezpieczeństw i skarbów. Tu rządzą wikingowie.",
-        "pobliska_lokacja": "Wolin",
-        "zasoby": ["ryby", "handel morski", "bursztyn"],
-        "niebezpieczenstwo": "wysokie"
+    "polana": {
+        "typ": "polana",
+        "ikona": "🌾",
+        "nazwa": "Polana",
+        "opis": "Otwarta przestrzeń, spokojne miejsce.",
+        "niebezpieczenstwo": "niskie"
     },
-    "puszcza_plocka": {
-        "typ": "las",
-        "nazwa": "Puszcza Płocka",
-        "opis": "Stara puszcza pełna dzikich zwierząt i tajemnic.",
-        "pobliska_lokacja": "Płock",
-        "zasoby": ["drewno", "zwierzyna", "miód"],
+    "droga": {
+        "typ": "droga",
+        "ikona": "🛤️",
+        "nazwa": "Droga Handlowa",
+        "opis": "Trakt łączący miasta, handlarze i rozbójnicy.",
         "niebezpieczenstwo": "średnie"
     },
-    "gora_sleza": {
-        "typ": "góra",
-        "nazwa": "Góra Ślęża",
-        "opis": "Święta góra Ślężan. Miejsce mocy i starożytnych rytów pogańskich.",
-        "pobliska_lokacja": "Ślęża",
-        "zasoby": ["artefakty", "moc magiczna", "wiedza"],
+    "cmentarz": {
+        "typ": "cmentarz",
+        "ikona": "💀",
+        "nazwa": "Cmentarz Przodków",
+        "opis": "Kurhany i mogiły, duchy krążą nocą.",
         "niebezpieczenstwo": "wysokie"
+    },
+    "ruiny": {
+        "typ": "ruiny",
+        "ikona": "🏚️",
+        "nazwa": "Stare Ruiny",
+        "opis": "Pozostałości dawnego grodu, tajemnice przeszłości.",
+        "niebezpieczenstwo": "wysokie"
+    },
+    "most": {
+        "typ": "most",
+        "ikona": "🌉",
+        "nazwa": "Most",
+        "opis": "Przeprawa przez rzekę, miejsce spotkań.",
+        "niebezpieczenstwo": "średnie"
+    },
+    "wioska": {
+        "typ": "wioska",
+        "ikona": "🏘️",
+        "nazwa": "Wieś Okoliczna",
+        "opis": "Mała osada chłopów, spokój i plotki.",
+        "niebezpieczenstwo": "niskie"
+    },
+    "jaskinia": {
+        "typ": "jaskinia",
+        "ikona": "⛰️",
+        "nazwa": "Jaskinia",
+        "opis": "Ciemna grota w skale, niebezpieczne tajemnice.",
+        "niebezpieczenstwo": "wysokie"
+    },
+    "oboz": {
+        "typ": "oboz",
+        "ikona": "⛺",
+        "nazwa": "Obóz Obronny",
+        "opis": "Tymczasowe umocnienie, żołnierze i strażnicy.",
+        "niebezpieczenstwo": "niskie"
+    }
+}
+
+# ============================================================================
+# WARSTWA 4: LOKACJE SPECJALNE (unikalne dla konkretnych miast)
+# ============================================================================
+
+LOKACJE_SPECJALNE = {
+    "bagna_goplo": {
+        "typ": "bagna",
+        "ikona": "🌫️",
+        "nazwa": "Bagna koło Gopła",
+        "opis": "Mgliste bagna pełne niebezpieczeństw. Strzygi i utopce.",
+        "pobliska_lokacja": "Gniezno",
+        "niebezpieczenstwo": "bardzo wysokie"
+    },
+    "gory_karpaty": {
+        "typ": "gory",
+        "ikona": "🏔️",
+        "nazwa": "Karpaty",
+        "opis": "Wysokie szczyty, górali i starzy bogowie.",
+        "pobliska_lokacja": "Kraków",
+        "niebezpieczenstwo": "średnie"
     },
     "jaskinia_smoka": {
         "typ": "jaskinia",
+        "ikona": "🐉",
         "nazwa": "Jaskinia Smoka Wawelskiego",
         "opis": "Głęboka jaskinia pod Wawelem. Podobno mieszkał tu smok...",
         "pobliska_lokacja": "Kraków",
-        "zasoby": ["skarby", "artefakty"],
-        "niebezpieczenstwo": "bardzo wysokie"
+        "niebezpieczenstwo": "ekstremalne"
+    },
+    "morze_baltyckie": {
+        "typ": "morze",
+        "ikona": "🌊",
+        "nazwa": "Morze Bałtyckie",
+        "opis": "Zimne wody, wikingowie i handel morski.",
+        "pobliska_lokacja": "Wolin",
+        "niebezpieczenstwo": "wysokie"
     },
     "ruiny_wichlina": {
         "typ": "ruiny",
+        "ikona": "🏛️",
         "nazwa": "Ruiny Wichlina",
-        "opis": "Pozostałości starego grodziska. Duchy przeszłości krążą po tych ruinach.",
+        "opis": "Starożytne grodzisko, duchy przeszłości.",
         "pobliska_lokacja": "Wolin",
-        "zasoby": ["artefakty", "wiedza historyczna"],
         "niebezpieczenstwo": "wysokie"
     },
     "droga_bursztynowa": {
         "typ": "droga",
+        "ikona": "💎",
         "nazwa": "Szlak Bursztynowy",
         "opis": "Starożytna droga handlowa łącząca Bałtyk z Rzymem.",
         "pobliska_lokacja": "Wolin",
-        "zasoby": ["handel", "spotkania"],
         "niebezpieczenstwo": "średnie"
     },
-    "cmentarzysko_kurhanow": {
-        "typ": "cmentarz",
-        "nazwa": "Cmentarzysko Kurhanów",
-        "opis": "Stare kurhany przodków. Miejsce pełne duchów i tajemnic.",
-        "pobliska_lokacja": "Płock",
-        "zasoby": ["artefakty", "wiedza przodków"],
-        "niebezpieczenstwo": "wysokie"
-    },
-    "wies_rzemieslnicza": {
-        "typ": "wieś",
-        "nazwa": "Wieś Rzemieślnicza",
-        "opis": "Mała osada rzemieślników. Spokojne miejsce pracy i handlu.",
-        "pobliska_lokacja": "Gniezno",
-        "zasoby": ["narzędzia", "żywność", "plotki"],
-        "niebezpieczenstwo": "niskie"
+    "gora_sleza": {
+        "typ": "gora",
+        "ikona": "⛰️",
+        "nazwa": "Góra Ślęża",
+        "opis": "Święta góra, miejsce mocy i pogańskich rytów.",
+        "pobliska_lokacja": "Ślęża",
+        "niebezpieczenstwo": "bardzo wysokie"
     }
 }
+
+# Backwards compatibility - łączy stare lokacje
+LOKACJE_POMOCNICZE = LOKACJE_SPECJALNE
 
 # ============================================================================
 # WARSTWA 4: MAPA PODRÓŻY
@@ -608,6 +648,69 @@ def pobierz_info_miasta(miasto):
                 "liczba_npc": len(plemie_data["npc"])
             }
     return None
+
+
+def pobierz_podpowiedzi_dla_miasta(miasto):
+    """Zwraca podpowiedzi (budynki + lokacje) dla danego miasta
+    
+    Returns:
+        dict: {
+            "budynki": [{nazwa, ikona, opis, funkcje}, ...],
+            "lokacje_standardowe": [{nazwa, ikona, opis, niebezpieczenstwo}, ...],
+            "lokacje_specjalne": [{nazwa, ikona, opis, niebezpieczenstwo}, ...]
+        }
+    """
+    # Pobierz budynki miasta
+    budynki = []
+    for plemie_data in PLEMIONA.values():
+        if plemie_data["miasto"] == miasto:
+            for budynek_id in plemie_data["budynki"]:
+                if budynek_id in BUDYNKI_DEFINICJE:
+                    budynek = BUDYNKI_DEFINICJE[budynek_id].copy()
+                    budynek["id"] = budynek_id
+                    # Dodaj ikony dla budynków
+                    ikony_budynkow = {
+                        "karczma": "🍺", "kuznia": "🔨", "targ": "🛒", "swiatynia": "⛪",
+                        "ratusz": "🏛️", "szpital": "⚕️", "warsztat": "🔧", "stajnia": "🐴",
+                        "koszary": "⚔️", "biblioteka": "📚", "laznia": "🛁", "mlyn": "⚙️",
+                        "piekarnia": "🍞", "wiezienie": "🔒", "wieza_straznicza": "🗼"
+                    }
+                    budynek["ikona"] = ikony_budynkow.get(budynek_id, "🏢")
+                    budynki.append(budynek)
+            break
+    
+    # Lokacje standardowe (10 dla każdego miasta)
+    lokacje_std = [
+        {
+            "id": lok_id,
+            "nazwa": lok["nazwa"],
+            "ikona": lok["ikona"],
+            "opis": lok["opis"],
+            "typ": lok["typ"],
+            "niebezpieczenstwo": lok["niebezpieczenstwo"]
+        }
+        for lok_id, lok in LOKACJE_STANDARDOWE.items()
+    ]
+    
+    # Lokacje specjalne (tylko dla tego miasta)
+    lokacje_spec = [
+        {
+            "id": lok_id,
+            "nazwa": lok["nazwa"],
+            "ikona": lok["ikona"],
+            "opis": lok["opis"],
+            "typ": lok["typ"],
+            "niebezpieczenstwo": lok["niebezpieczenstwo"]
+        }
+        for lok_id, lok in LOKACJE_SPECJALNE.items()
+        if lok.get("pobliska_lokacja") == miasto
+    ]
+    
+    return {
+        "budynki": budynki,
+        "lokacje_standardowe": lokacje_std,
+        "lokacje_specjalne": lokacje_spec
+    }
 
 
 # Test funkcji (można uruchomić ten plik bezpośrednio)

@@ -26,7 +26,7 @@ from tts_engine import TTSEngine
 from database import Database
 from game_logger import game_log, logger
 from items import PRZEDMIOTY, get_item, get_all_item_names
-from lokacje import pobierz_wszystkie_miasta, PLEMIONA
+from lokacje import pobierz_wszystkie_miasta, PLEMIONA, pobierz_podpowiedzi_dla_miasta
 
 app = Flask(__name__)
 app.secret_key = 'slowianski_sekret_2025'
@@ -1514,6 +1514,19 @@ def wymien_przedmiot():
         "ekwipunek": ekwipunek_gracza,
         "towarzysze": towarzysze
     })
+
+
+@app.route('/api/podpowiedzi')
+def api_podpowiedzi():
+    """Endpoint zwracający podpowiedzi dla miasta gracza"""
+    postac = session.get('postac')
+    if not postac:
+        return jsonify({"error": "Brak postaci"}), 400
+    
+    miasto = postac.get('lokacja', 'Gniezno')
+    podpowiedzi = pobierz_podpowiedzi_dla_miasta(miasto)
+    
+    return jsonify(podpowiedzi)
 
 
 if __name__ == '__main__':

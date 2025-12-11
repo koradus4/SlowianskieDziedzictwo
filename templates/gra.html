@@ -3,7 +3,7 @@
 {% block title %}Gra - {{ postac.imie }} - Słowiańskie Dziedzictwo{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: 300px 1fr 280px; gap: 20px;">
+<div style="display: grid; grid-template-columns: 280px 1fr 280px 320px; gap: 15px;">
     
     <!-- Panel postaci (lewa kolumna) -->
     <div>
@@ -225,6 +225,36 @@
                 <hr style="border: none; border-top: 1px solid rgba(201,162,39,0.2); margin: 10px 0;">
                 <p><strong style="color: #c9a227;">Legenda siły wrogów:</strong></p>
                 <p style="font-size: 0.8em;">⚔️⚔️⚔️ = słaby | ⚔️⚔️⚔️⚔️⚔️ = groźny | 💀 = śmiertelny</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Panel PODPOWIEDZI (nowy - prawa krawędź) -->
+    <div style="position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto;">
+        <div class="card">
+            <h2>🗺️ Podpowiedzi</h2>
+            <p style="font-size: 0.75em; color: #888; margin-bottom: 10px;">Kliknij by wstawić sugestię akcji</p>
+            
+            <!-- Budynki -->
+            <div style="margin-bottom: 15px;">
+                <h3 style="font-size: 0.9em; color: #c9a227; margin-bottom: 8px;">🏛️ Budynki w mieście</h3>
+                <div id="podpowiedzi-budynki" style="display: flex; flex-direction: column; gap: 5px; font-size: 0.75em;">
+                    <p style="color: #888;">Ładowanie...</p>
+                </div>
+            </div>
+            
+            <!-- Lokacje standardowe -->
+            <div style="margin-bottom: 15px;">
+                <h3 style="font-size: 0.9em; color: #5a9a5a; margin-bottom: 8px;">🌲 Lokacje do eksploracji</h3>
+                <div id="podpowiedzi-lokacje" style="display: flex; flex-direction: column; gap: 5px; font-size: 0.75em;">
+                    <p style="color: #888;">Ładowanie...</p>
+                </div>
+            </div>
+            
+            <!-- Lokacje specjalne -->
+            <div id="podpowiedzi-specjalne-container" style="margin-bottom: 15px; display: none;">
+                <h3 style="font-size: 0.9em; color: #dc3545; margin-bottom: 8px;">⚠️ Lokacje specjalne</h3>
+                <div id="podpowiedzi-specjalne" style="display: flex; flex-direction: column; gap: 5px; font-size: 0.75em;"></div>
             </div>
         </div>
     </div>
@@ -1104,9 +1134,67 @@
         // 2. Załaduj dziennik
         zaladujDziennik();
         
-        // 3. Rozpocznij grę
+        // 3. Załaduj podpowiedzi
+        zaladujPodpowiedzi();
+        
+        // 4. Rozpocznij grę
         rozpocznijPrzygode();
     });
+    
+    // === PODPOWIEDZI ===
+    async function zaladujPodpowiedzi() {
+        try {
+            const response = await fetch('/api/podpowiedzi');
+            const data = await response.json();
+            
+            // Budynki
+            const budynkiHTML = data.budynki.map(b => `
+                <div onclick="wstawPodpowiedz('Idę do ${b.nazwa}')" 
+                     style="padding: 6px 8px; background: rgba(139, 69, 19, 0.2); border-radius: 6px; cursor: pointer; border: 1px solid rgba(139, 69, 19, 0.4); transition: all 0.2s;"
+                     onmouseover="this.style.background='rgba(139, 69, 19, 0.35)'"
+                     onmouseout="this.style.background='rgba(139, 69, 19, 0.2)'">
+                    <span>${b.ikona} ${b.nazwa}</span>
+                    <div style="font-size: 0.7em; color: #888; margin-top: 2px;">${b.opis}</div>
+                </div>
+            `).join('');
+            document.getElementById('podpowiedzi-budynki').innerHTML = budynkiHTML;
+            
+            // Lokacje standardowe
+            const lokacjeHTML = data.lokacje_standardowe.map(l => `
+                <div onclick="wstawPodpowiedz('Idę do ${l.nazwa}')" 
+                     style="padding: 6px 8px; background: rgba(70, 130, 70, 0.2); border-radius: 6px; cursor: pointer; border: 1px solid rgba(70, 130, 70, 0.4); transition: all 0.2s;"
+                     onmouseover="this.style.background='rgba(70, 130, 70, 0.35)'"
+                     onmouseout="this.style.background='rgba(70, 130, 70, 0.2)'">
+                    <span>${l.ikona} ${l.nazwa}</span>
+                    <div style="font-size: 0.7em; color: #888; margin-top: 2px;">⚠️ ${l.niebezpieczenstwo}</div>
+                </div>
+            `).join('');
+            document.getElementById('podpowiedzi-lokacje').innerHTML = lokacjeHTML;
+            
+            // Lokacje specjalne (jeśli są)
+            if (data.lokacje_specjalne && data.lokacje_specjalne.length > 0) {
+                const specjalneHTML = data.lokacje_specjalne.map(l => `
+                    <div onclick="wstawPodpowiedz('Idę do ${l.nazwa}')" 
+                         style="padding: 6px 8px; background: rgba(220, 53, 69, 0.2); border-radius: 6px; cursor: pointer; border: 1px solid rgba(220, 53, 69, 0.4); transition: all 0.2s;"
+                         onmouseover="this.style.background='rgba(220, 53, 69, 0.35)'"
+                         onmouseout="this.style.background='rgba(220, 53, 69, 0.2)'">
+                        <span>${l.ikona} ${l.nazwa}</span>
+                        <div style="font-size: 0.7em; color: #888; margin-top: 2px;">⚠️ ${l.niebezpieczenstwo}</div>
+                    </div>
+                `).join('');
+                document.getElementById('podpowiedzi-specjalne').innerHTML = specjalneHTML;
+                document.getElementById('podpowiedzi-specjalne-container').style.display = 'block';
+            }
+        } catch (e) {
+            console.error('❌ Błąd ładowania podpowiedzi:', e);
+        }
+    }
+    
+    function wstawPodpowiedz(tekst) {
+        const input = document.getElementById('akcja-input');
+        input.value = tekst;
+        input.focus();
+    }
 </script>
 
 <!-- Style dla animacji mapy -->
