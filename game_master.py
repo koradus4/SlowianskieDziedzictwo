@@ -654,6 +654,20 @@ PRZYKŁADY:
             
             return wynik
         except json.JSONDecodeError as e:
+            # Spróbuj z strict=False (ignoruje niepoprawne escape sequences)
+            try:
+                wynik = json.loads(tekst, strict=False)
+                self.logger.warning(f"⚠️ JSON sparsowany z strict=False (niepoprawne escape sequences)")
+                self.logger.info(f"✅ Parsowanie JSON OK, lokacja: {wynik.get('lokacja', 'brak')}")
+                
+                # Walidacja również tutaj
+                if 'uczestnicy' in wynik and isinstance(wynik['uczestnicy'], list):
+                    wynik['uczestnicy'] = self._waliduj_uczestnikow_bestiariusza(wynik['uczestnicy'])
+                
+                return wynik
+            except Exception:
+                pass  # Przejdź do agresywnej naprawy
+                
             self.logger.error(f"❌ Błąd parsowania JSON: {e}")
             self.logger.error(f"📄 Tekst po ekstrakcji {{...}}: {tekst[:500]}")
             
@@ -808,14 +822,23 @@ PRZYKŁADY:
             if typ in ['wrog', 'bestia', 'boss']:
                 imie = uczestnik.get('imie', '')
                 
-                # Spróbuj znaleźć w bestiariuszu
+                # Spróbuj znaleźć w bestiariuszu - dokładnie lub częściowo
                 dane_bestiariusza = pobierz_przeciwnika(imie)
                 
+                # Jeśli nie znaleziono dokładnie, szukaj częściowo (np. "Pierwszy Szary Wilk" -> "Szary Wilk")
+                if not dane_bestiariusza:
+                    from bestiary import BESTIARIUSZ
+                    for nazwa_bestiariusza in BESTIARIUSZ.keys():
+                        if nazwa_bestiariusza.lower() in imie.lower():
+                            dane_bestiariusza = pobierz_przeciwnika(nazwa_bestiariusza)
+                            self.logger.info(f"✅ Częściowe dopasowanie: '{imie}' → '{nazwa_bestiariusza}'")
+                            break
+                
                 if dane_bestiariusza:
-                    # OK - użyj danych z bestiariusza
-                    self.logger.info(f"✅ Walidacja bestiariusza: '{imie}' znaleziony")
+                    # OK - użyj danych z bestiariusza, ale ZACHOWAJ oryginalne imie AI
+                    self.logger.info(f"✅ Walidacja bestiariusza: '{imie}' zaakceptowany")
                     uczestnik_poprawiony = {
-                        'imie': dane_bestiariusza['nazwa'],
+                        'imie': imie,  # ZACHOWAJ oryginalne imie AI (np. "Pierwszy Wilk")
                         'typ': dane_bestiariusza['typ'],
                         'hp_max': dane_bestiariusza['hp_max'],
                         'ikona': dane_bestiariusza.get('ikona', '⚔️')
