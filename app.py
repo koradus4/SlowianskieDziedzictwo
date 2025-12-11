@@ -1186,6 +1186,14 @@ def audio(filename):
     return send_file(audio_dir / filename, mimetype='audio/wav')
 
 
+@app.route('/debug/slow')
+def debug_slow():
+    """Endpoint testowy - sztuczne opóźnienie, pomaga reprodukować timeouty klienta"""
+    import time
+    time.sleep(30)
+    return jsonify({'ok': True, 'msg': 'done after sleep'})
+
+
 @app.route('/postac')
 def postac_info():
     """Zwraca dane postaci"""
