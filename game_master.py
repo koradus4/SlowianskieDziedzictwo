@@ -241,10 +241,9 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         
         # FALLBACK MODELS: Lista modeli do wypróbowania (jeśli pierwszy się wyczerpie)
         self.available_models = [
-            'gemini-2.5-flash',      # Preferowany (najszybszy, najtańszy)
-            'gemini-2.0-flash-exp',  # Fallback 1 (eksperymentalny, może mieć osobny limit)
-            'gemini-1.5-flash',      # Fallback 2 (starsza wersja, stabilna)
-            'gemini-1.5-pro'         # Fallback 3 (wolniejszy ale mądrzejszy)
+            'gemini-2.5-pro',        # Preferowany (najlepsze narracje, mądrzejszy)
+            'gemini-2.5-flash',      # Fallback 1 (szybszy, gdy pro timeout/quota)
+            'gemini-2.0-flash-exp'   # Fallback 2 (eksperymentalny, ostatnia deska ratunku)
         ]
         
         # Model Gemini (z ENV lub domyślny)
@@ -449,7 +448,7 @@ Pamiętaj o formacie JSON!"""
                     {"role": "user", "parts": [system_prompt_z_lokacjami]},
                     {"role": "user", "parts": [prompt]}
                 ],
-                timeout=60
+                timeout=90  # Zwiększony dla Pro (wolniejszy niż Flash)
             )
             
             # DEBUGOWANIE: Zaloguj surowy response
@@ -620,7 +619,7 @@ PRZYKŁADY:
             # Bez JSON Schema - problemy z Gemini 2.5 Flash
             # Polegamy na auto-naprawie w _parsuj_json()
             # Wywołaj model z timeoutem, aby uniknąć blokowania serwera
-            response = self._call_model_with_timeout(messages, timeout=45)
+            response = self._call_model_with_timeout(messages, timeout=60)  # Zwiększony dla Pro
             
             odpowiedz = self._parsuj_json(response.text)
             
