@@ -578,7 +578,15 @@
         document.getElementById('narrative-text').innerHTML = '<em>Mistrz Gry przygotowuje przygodę...</em>';
         
         try {
-            const response = await fetch('/rozpocznij_przygode', { method: 'POST' });
+            // Użyj AbortController z timeoutem 3 minuty
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
+            
+            const response = await fetch('/rozpocznij_przygode', { 
+                method: 'POST',
+                signal: controller.signal 
+            });
+            clearTimeout(timeoutId);
             
             // Sprawdź status odpowiedzi
             if (!response.ok) {
@@ -760,9 +768,9 @@
                                   <p><em>Mistrz Gry przemyśla twój ruch...</em></p>`;
         
         try {
-            // Użyj AbortController, żeby móc przerwać żądanie po 15s
+            // Użyj AbortController, żeby móc przerwać żądanie po 3 minutach
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
 
             const response = await fetch('/akcja', {
                 method: 'POST',
