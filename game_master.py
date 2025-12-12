@@ -239,8 +239,18 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         if genai:
             genai.configure(api_key=self.api_key)
         
+        # FALLBACK MODELS: Lista modeli do wypróbowania (jeśli pierwszy się wyczerpie)
+        self.available_models = [
+            'gemini-2.5-flash',      # Preferowany (najszybszy, najtańszy)
+            'gemini-2.0-flash-exp',  # Fallback 1 (eksperymentalny, może mieć osobny limit)
+            'gemini-1.5-flash',      # Fallback 2 (starsza wersja, stabilna)
+            'gemini-1.5-pro'         # Fallback 3 (wolniejszy ale mądrzejszy)
+        ]
+        
         # Model Gemini (z ENV lub domyślny)
-        self.model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+        self.model_name = os.getenv('GEMINI_MODEL', self.available_models[0])
+        self.current_model_index = 0  # Indeks aktualnego modelu w liście
+        
         if genai:
             self.model = genai.GenerativeModel(self.model_name)
         else:
@@ -254,8 +264,24 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         self.hf_api_token = os.getenv('HF_API_TOKEN')
         self.hf_model = os.getenv('HF_MODEL', '')
 
-    def _call_model_with_timeout(self, messages, timeout: int = 12):
-        """Wywołuje generative model w wątku i stosuje timeout, by nie blokować serwera."""
+    def _switch_to_fallback_model(self):
+        """Przełącza na następny model z listy fallbacków"""
+        if self.current_model_index < len(self.available_models) - 1:
+            self.current_model_index += 1
+            self.model_name = self.available_models[self.current_model_index]
+            self.model = genai.GenerativeModel(self.model_name)
+            self.logger.warning(f"🔄 Przełączono na fallback model: {self.model_name}")
+            return True
+        return False
+
+    def _call_model_with_timeout(self, messages, timeout: int = 12, retry_on_quota: bool = True):
+        """Wywołuje generative model w wątku i stosuje timeout, by nie blokować serwera.
+        
+        Args:
+            messages: Wiadomości do wysłania
+            timeout: Maksymalny czas oczekiwania (sekundy)
+            retry_on_quota: Czy próbować fallback model przy błędzie quota
+        """
         import concurrent.futures
 
         if not getattr(self, 'model', None):
@@ -270,8 +296,14 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
                 return fut.result(timeout=timeout)
             except concurrent.futures.TimeoutError:
                 fut.cancel()
-                self.logger.error(f"❌ Gemini timeout after {timeout}s")
+                self.logger.error(f"❌ Gemini timeout after {timeout}s (model: {self.model_name})")
                 game_log.log_gemini_response(0, timeout * 1000, model=self.model_name, success=False, error='timeout')
+                
+                # Spróbuj fallback model przy timeout
+                if retry_on_quota and self._switch_to_fallback_model():
+                    self.logger.info(f"🔄 Próba ponowna z modelem {self.model_name}...")
+                    return self._call_model_with_timeout(messages, timeout, retry_on_quota=False)
+                
                 raise TimeoutError(f"Gemini timeout after {timeout}s")
             except Exception as e:
                 # Rozpoznaj typ błędu API key vs inne
@@ -280,7 +312,13 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
                 
                 # Sprawdź czy to rzeczywisty błąd limitu (ResourceExhausted lub 429)
                 if error_type == 'ResourceExhausted' or '429 Resource has been exhausted' in error_str:
-                    self.logger.error(f"❌ Gemini quota exceeded: {e}")
+                    self.logger.error(f"❌ Gemini quota exceeded: {e} (model: {self.model_name})")
+                    
+                    # Spróbuj przełączyć na fallback model
+                    if retry_on_quota and self._switch_to_fallback_model():
+                        self.logger.info(f"🔄 Próba ponowna z modelem {self.model_name}...")
+                        return self._call_model_with_timeout(messages, timeout, retry_on_quota=False)
+                    
                     raise RuntimeError(f"Przekroczono limit zapytań do Gemini API. Spróbuj ponownie za chwilę.")
                 elif 'API_KEY_INVALID' in error_str or 'API key not valid' in error_str:
                     self.logger.error(f"❌ Gemini API KEY NIEPRAWIDŁOWY: {e}")
@@ -340,10 +378,11 @@ BUDYNKI DOSTĘPNE ({len(dane_lokacji['budynki'])}):
 {', '.join(dane_lokacji['budynki'].keys())}
 
 NPC W MIEŚCIE (przykłady - aby poznać szczegóły, wejdź do budynku):"""
-            # Pokaż tylko 5 przykładowych NPC
-            for npc in dane_lokacji['npc_dostepni'][:5]:
+            # Pokaż tylko 3 przykładowych NPC (zmniejszony prompt)
+            for npc in dane_lokacji['npc_dostepni'][:3]:
                 kontekst += f"\n- {npc['imie']} ({npc['funkcja']}) w {npc['lokalizacja']}"
-            kontekst += f"\n... i {len(dane_lokacji['npc_dostepni']) - 5} innych NPC"
+            if len(dane_lokacji['npc_dostepni']) > 3:
+                kontekst += f"\n... i {len(dane_lokacji['npc_dostepni']) - 3} innych NPC"
         
         kontekst += f"\n\nINNE MIASTA: {', '.join([m for m in pobierz_wszystkie_miasta() if m != miasto])}"
         
@@ -410,7 +449,7 @@ Pamiętaj o formacie JSON!"""
                     {"role": "user", "parts": [system_prompt_z_lokacjami]},
                     {"role": "user", "parts": [prompt]}
                 ],
-                timeout=30
+                timeout=60
             )
             
             # DEBUGOWANIE: Zaloguj surowy response
@@ -581,7 +620,7 @@ PRZYKŁADY:
             # Bez JSON Schema - problemy z Gemini 2.5 Flash
             # Polegamy na auto-naprawie w _parsuj_json()
             # Wywołaj model z timeoutem, aby uniknąć blokowania serwera
-            response = self._call_model_with_timeout(messages, timeout=30)
+            response = self._call_model_with_timeout(messages, timeout=45)
             
             odpowiedz = self._parsuj_json(response.text)
             
