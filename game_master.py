@@ -87,13 +87,6 @@ Zawsze odpowiadaj w formacie JSON:
         {{"imie": "Żywisław", "typ": "npc", "zawod": "Kapłan"}},
         {{"imie": "Wilk", "typ": "bestia", "hp_max": 40, "hp": 40}}
     ],
-    "obrazenia": {{
-        "gracz_otrzymal": liczba (ile HP stracił gracz, 0 jeśli brak ataku),
-        "zadane": [
-            {{"cel": "Imię przeciwnika", "wartosc": liczba}},
-            {{"cel": "Imię przeciwnika2", "wartosc": liczba}}
-        ]
-    }},
     "transakcje": {{
         "zloto_zmiana": liczba (ujemna = wydatek, dodatnia = zarobek, 0 = brak),
         "przedmioty_dodane": ["Nazwa przedmiotu1", "Nazwa przedmiotu2"],
@@ -120,7 +113,7 @@ PRZYKŁAD KONKRETNY - GRACZ W LESIE SPOTYKA 3 WILKI:
 
 PRZYKŁAD WALKI - GRACZ ATAKUJE WILKA:
 {{
-    "narracja": "**Narrator:** Wymachujesz mieczem i trafiasz wilka w bok!\n\n**Pierwszy Wilk:** *Wilk warknie z bólu i rzuca się na ciebie, drapiąc pazurami!*",
+    "narracja": "**Narrator:** Wymachujesz mieczem i trafiasz wilka w bok!\\n\\n**Pierwszy Wilk:** *Wilk warknie z bólu i rzuca się na ciebie, drapiąc pazurami!*",
     "lokacja": "Las",
     "hp_gracza": 73,
     "uczestnicy": [
@@ -157,20 +150,20 @@ WAŻNE O "opcje":
 - Przykłady ZŁYCH opcji: "Przyjmij zadanie od Żywisława i udaj się..." (za długie!)
 
 WAŻNE O "obrazenia":
-- **KRYTYCZNE:** Pole "obrazenia" jest OBOWIĄZKOWE podczas walki/ataku!
+- **Pole "obrazenia" jest OPCJONALNE** - dodaj TYLKO podczas walki/ataku
 - **TY NIE DECYDUJESZ o śmierci!** Backend sprawdzi czy HP <= 0 i usunie przeciwnika
 - ⚠️ **ZAKAZ:** NIE pisz w narracji "zabijasz wilka" / "przeciwnik ginie" dopóki NIE jest już martwy w kontekście!
 - Jeśli gracz ATAKUJE:
   * Podaj "gracz_otrzymal": 0-25 (ile HP stracił gracz od kontrataku)
-  * Podaj "zadane": [{"cel": "Imię przeciwnika", "wartosc": 8-20}] (ile HP zadał przeciwnik)
-- Jeśli gracz NIE atakuje (rozmowa, eksploracja): pomiń pole "obrazenia" całkowicie
+  * Podaj "zadane": [{{"cel": "Imię przeciwnika", "wartosc": 8-20}}] (ile HP zadał gracz)
+- Jeśli gracz NIE atakuje (rozmowa, eksploracja, początek gry): **pomiń pole "obrazenia" całkowicie**
 - **Obrażenia gracza:** Typowy atak wroga: 8-15 HP, silny atak: 18-25 HP, słaby: 3-7 HP
 - **Obrażenia wroga:** Typowy atak gracza: 10-18 HP, krytyczny cios: 20-30 HP, pudło: 0-5 HP
 - **PRZYKŁAD POPRAWNY:**
-  * Gracz atakuje wilka (40/40 HP) → hp_gracza: 73 (był 85), uczestnicy: [{"imie": "Wilk", "hp": 22, "hp_max": 40}], obrazenia: {"gracz_otrzymal": 12, "zadane": [{"cel": "Wilk", "wartosc": 18}]}
+  * Gracz atakuje wilka (40/40 HP) → hp_gracza: 73 (był 85), uczestnicy: [{{"imie": "Wilk", "hp": 22, "hp_max": 40}}], obrazenia: {{"gracz_otrzymal": 12, "zadane": [{{"cel": "Wilk", "wartosc": 18}}]}}
 - **PRZYKŁAD BŁĘDNY:**
   * ❌ Narracja: "Zabijasz wilka jednym ciosem!" + hp: 25 → BŁĄD! Wilk ma 25 HP, nie możesz pisać że zginął!
-  * ❌ Tylko tekst w narracji bez pola "obrazenia" → BŁĄD! Backend nie odejmie HP!
+  * ❌ Tylko tekst w narracji bez pola "obrazenia" podczas walki → BŁĄD! Backend nie odejmie HP!
 
 WAŻNE O "transakcje":
 - Używaj TYLKO gdy gracz kupuje/sprzedaje/otrzymuje/traci przedmioty lub złoto
