@@ -685,6 +685,14 @@ PRZYKŁADY:
             wynik = json.loads(tekst)
             self.logger.info(f"✅ Parsowanie JSON OK, lokacja: {wynik.get('lokacja', 'brak')}")
             
+            # WALIDACJA: Usuń pole "obrazenia" jeśli jest puste lub błędne
+            if 'obrazenia' in wynik:
+                obrazenia = wynik['obrazenia']
+                # Usuń jeśli puste lub brak zadanych obrażeń
+                if not obrazenia or (isinstance(obrazenia, dict) and not obrazenia.get('zadane')):
+                    del wynik['obrazenia']
+                    self.logger.info(f"🗑️ Usunięto puste pole 'obrazenia'")
+            
             # WALIDACJA: Skróć za długie opcje
             if 'opcje' in wynik and isinstance(wynik['opcje'], list):
                 opcje_poprawione = []
@@ -708,6 +716,13 @@ PRZYKŁADY:
                 wynik = json.loads(tekst, strict=False)
                 self.logger.warning(f"⚠️ JSON sparsowany z strict=False (niepoprawne escape sequences)")
                 self.logger.info(f"✅ Parsowanie JSON OK, lokacja: {wynik.get('lokacja', 'brak')}")
+                
+                # Usuń puste pole obrazenia również tutaj
+                if 'obrazenia' in wynik:
+                    obrazenia = wynik['obrazenia']
+                    if not obrazenia or (isinstance(obrazenia, dict) and not obrazenia.get('zadane')):
+                        del wynik['obrazenia']
+                        self.logger.info(f"🗑️ Usunięto puste pole 'obrazenia' (strict=False)")
                 
                 # Walidacja również tutaj
                 if 'uczestnicy' in wynik and isinstance(wynik['uczestnicy'], list):
