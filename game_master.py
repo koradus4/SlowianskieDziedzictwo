@@ -438,6 +438,8 @@ Pamiętaj o formacie JSON!"""
         try:
             start = time.time()
             # log request
+            self.logger.info(f"🤖 Model: {self.model_name} | Prompt: {len(prompt)} znaków | Historia: {len(self.historia)} wiadomości")
+            self.logger.info(f"🤖 Model: {self.model_name} | Prompt: {len(prompt)} znaków | Historia: {len(self.historia)} wiadomości")
             game_log.log_gemini_request(len(prompt), len(self.historia), model=self.model_name)
             
             # Bez JSON Schema - problemy z Gemini 2.5 Flash
