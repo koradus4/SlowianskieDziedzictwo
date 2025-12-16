@@ -181,6 +181,13 @@ class Database:
             except:
                 conn.rollback()  # Rollback jeśli kolumna już istnieje
             
+            # Migracja - dodaj kolumnę quest_aktywny do postacie
+            try:
+                cursor.execute("ALTER TABLE postacie ADD COLUMN quest_aktywny TEXT")
+                conn.commit()
+            except:
+                conn.rollback()  # Rollback jeśli kolumna już istnieje
+            
             conn.commit()
             conn.close()
             print("✅ Baza danych zainicjalizowana!")
@@ -200,8 +207,8 @@ class Database:
         
         base_query = f"""
             INSERT INTO postacie 
-            (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, przeciwnicy_hp, lokacja, typ_zapisu)
-            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, przeciwnicy_hp, lokacja, typ_zapisu, quest_aktywny)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
         """
         
         params = (
@@ -219,7 +226,8 @@ class Database:
             json.dumps(postac.get('towarzysze', [])),
             json.dumps(postac.get('przeciwnicy_hp', {})),
             postac.get('lokacja', 'gniezno'),
-            typ_zapisu
+            typ_zapisu,
+            postac.get('quest_aktywny')
         )
 
         if self.use_postgres:

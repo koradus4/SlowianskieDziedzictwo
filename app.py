@@ -1198,6 +1198,11 @@ def akcja():
     if nowa_lokacja:
         postac['lokacja'] = nowa_lokacja
     
+    # Aktualizuj quest aktywny
+    nowy_quest = wynik.get('quest_aktywny')
+    if nowy_quest is not None:  # Może być None (quest zakończony) lub string
+        postac['quest_aktywny'] = nowy_quest
+    
     # Zapisz zaktualizowaną postać do sesji
     session['postac'] = postac
     
