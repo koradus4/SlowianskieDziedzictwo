@@ -1209,38 +1209,28 @@ def akcja():
         logger.error("❌ KRYTYCZNY: Brak postac_id podczas akcji gracza!")
         return jsonify({'error': 'Sesja wygasła - wróć do menu głównego'}), 401
     
-    # AUTOSAVE: Zapisz pełny stan gry (postać + kontekst AI + opcje)
+    # AUTOSAVE: Zapisz pełny stan gry (NOWY rekord za każdym razem)
     try:
-        # 1. Aktualizuj dane postaci
-        rows = db.aktualizuj_postac(postac_id, {
-            'hp': postac['hp'], 
-            'lokacja': postac.get('lokacja', 'gniezno'),
-            'zloto': postac.get('zloto', 0),
-            'ekwipunek': postac.get('ekwipunek', []),
-            'towarzysze': postac.get('towarzysze', []),
-            'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
-        })
-        
-        # 2. Zapisz historię tekstową
+        # 1. Zapisz historię tekstową (musi być przed nowym zapisem postaci)
         db.zapisz_historie(postac_id, akcja_gracza, narracja)
         
-        # 3. NOWE: Zapisz kontekst AI (historia Gemini + ostatnie opcje)
+        # 2. Utwórz NOWY autosave (nie aktualizuj starego!)
+        nowy_postac_id = db.zapisz_postac(postac, typ_zapisu='autosave')
+        
+        # 3. Zapisz kontekst AI dla nowego autosave
         historia_ai = game_master.get_historia()
         ostatnie_opcje = wynik.get('opcje', [])
-        db.zapisz_ai_context(postac_id, historia_ai, ostatnie_opcje)
+        db.zapisz_ai_context(nowy_postac_id, historia_ai, ostatnie_opcje)
         
-        # 4. Usuń stare autosave'y (zachowaj max 5)
+        # 4. Zaktualizuj session z nowym ID
+        session['postac_id'] = nowy_postac_id
+        
+        # 5. Usuń stare autosave'y (zachowaj max 5)
         usunietych = db.usun_stare_autosavy(limit=5)
         if usunietych > 0:
             logger.info(f"🗑️ Autosave: usunięto {usunietych} starych zapisów")
         
-        logger.info(f"💾 Autosave: postac_id={postac_id}, AI historia={len(historia_ai)} msg, opcje={len(ostatnie_opcje)}")
-        
-        if rows == 0:
-            logger.warning(f"⚠️ Aktualizacja postaci podczas akcji zwróciła 0 wierszy (postac_id={postac_id}). Tworzę nowy zapis.")
-            new_id = db.zapisz_postac(postac)
-            session['postac_id'] = new_id
-            logger.info(f"🔁 Nowy zapis utworzony z ID: {new_id}")
+        logger.info(f"💾 Autosave: nowy_id={nowy_postac_id}, AI historia={len(historia_ai)} msg, opcje={len(ostatnie_opcje)}")
             
     except Exception as e:
         logger.error(f"❌ Błąd autosave: {e}")
