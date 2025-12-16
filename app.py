@@ -724,9 +724,9 @@ def zapisz_gre():
 
 @app.route('/lista_zapisow')
 def lista_zapisow():
-    """Zwraca listę zapisanych gier (max 10)"""
+    """Zwraca listę autosave'ów (max 5 najnowszych)"""
     try:
-        zapisy = db.lista_postaci(limit=10)
+        zapisy = db.lista_postaci(limit=5, tylko_autosave=True)
         return jsonify({'zapisy': zapisy})
     except Exception as e:
         logger.error(f"❌ Błąd listowania zapisów: {e}")
@@ -756,7 +756,7 @@ def usun_zapis(postac_id):
 
 @app.route('/wczytaj_zapis/<int:postac_id>')
 def wczytaj_zapis(postac_id):
-    """Wczytuje zapisaną grę"""
+    """Wczytuje zapisaną grę z pełnym kontekstem AI"""
     try:
         postac = db.wczytaj_postac(postac_id)
         
@@ -766,22 +766,38 @@ def wczytaj_zapis(postac_id):
         # Wyczyść poprzednią sesję
         session.clear()
         
-        # Załaduj pełny stan
+        # Załaduj dane postaci
         session['postac'] = postac
         session['postac_id'] = postac_id
         session['historia'] = db.wczytaj_historie(postac_id, limit=100)
         session['przeciwnicy_hp'] = postac.get('przeciwnicy_hp', {})
         session.modified = True  # Wymuś zapis sesji
         
-        # Przywróć kontekst AI
+        # NOWE: Przywróć pełny kontekst AI (historia Gemini + opcje)
+        ai_context = db.wczytaj_ai_context(postac_id)
+        historia_ai = ai_context.get('historia', [])
+        ostatnie_opcje = ai_context.get('opcje', [])
+        
+        if historia_ai:
+            game_master.set_historia(historia_ai)
+            logger.info(f"📂 Przywrócono historię AI: {len(historia_ai)} wiadomości")
+        else:
+            logger.warning(f"⚠️ Brak zapisanego kontekstu AI dla postaci {postac_id}")
+        
+        # Przywróć stan HP w GameMaster
         game_master.aktualne_hp = postac['hp']
         game_master.hp_max = postac['hp_max']
         
-        logger.info(f"📂 Gra wczytana: {postac.get('imie')} (ID: {postac_id})")
+        # Zapisz opcje do sesji (użyjemy ich w interfejsie)
+        session['ostatnie_opcje'] = ostatnie_opcje
+        
+        logger.info(f"📂 Gra wczytana: {postac.get('imie')} (ID: {postac_id}), opcje: {len(ostatnie_opcje)}")
         return jsonify({'ok': True, 'redirect': '/gra'})
         
     except Exception as e:
         logger.error(f"❌ Błąd wczytywania gry: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify({'ok': False, 'error': str(e)})
 
 
@@ -1180,20 +1196,42 @@ def akcja():
         logger.error("❌ KRYTYCZNY: Brak postac_id podczas akcji gracza!")
         return jsonify({'error': 'Sesja wygasła - wróć do menu głównego'}), 401
     
-    rows = db.aktualizuj_postac(postac_id, {
-        'hp': postac['hp'], 
-        'lokacja': postac.get('lokacja', 'gniezno'),
-        'zloto': postac.get('zloto', 0),
-        'ekwipunek': postac.get('ekwipunek', []),
-        'towarzysze': postac.get('towarzysze', []),
-        'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
-    })
-    db.zapisz_historie(postac_id, akcja_gracza, narracja)
-    if rows == 0:
-        logger.warning(f"⚠️ Aktualizacja postaci podczas akcji zwróciła 0 wierszy (postac_id={postac_id}). Tworzę nowy zapis.")
-        new_id = db.zapisz_postac(postac)
-        session['postac_id'] = new_id
-        logger.info(f"🔁 Nowy zapis utworzony z ID: {new_id}")
+    # AUTOSAVE: Zapisz pełny stan gry (postać + kontekst AI + opcje)
+    try:
+        # 1. Aktualizuj dane postaci
+        rows = db.aktualizuj_postac(postac_id, {
+            'hp': postac['hp'], 
+            'lokacja': postac.get('lokacja', 'gniezno'),
+            'zloto': postac.get('zloto', 0),
+            'ekwipunek': postac.get('ekwipunek', []),
+            'towarzysze': postac.get('towarzysze', []),
+            'przeciwnicy_hp': session.get('przeciwnicy_hp', {})
+        })
+        
+        # 2. Zapisz historię tekstową
+        db.zapisz_historie(postac_id, akcja_gracza, narracja)
+        
+        # 3. NOWE: Zapisz kontekst AI (historia Gemini + ostatnie opcje)
+        historia_ai = game_master.get_historia()
+        ostatnie_opcje = wynik.get('opcje', [])
+        db.zapisz_ai_context(postac_id, historia_ai, ostatnie_opcje)
+        
+        # 4. Usuń stare autosave'y (zachowaj max 5)
+        usunietych = db.usun_stare_autosavy(limit=5)
+        if usunietych > 0:
+            logger.info(f"🗑️ Autosave: usunięto {usunietych} starych zapisów")
+        
+        logger.info(f"💾 Autosave: postac_id={postac_id}, AI historia={len(historia_ai)} msg, opcje={len(ostatnie_opcje)}")
+        
+        if rows == 0:
+            logger.warning(f"⚠️ Aktualizacja postaci podczas akcji zwróciła 0 wierszy (postac_id={postac_id}). Tworzę nowy zapis.")
+            new_id = db.zapisz_postac(postac)
+            session['postac_id'] = new_id
+            logger.info(f"🔁 Nowy zapis utworzony z ID: {new_id}")
+            
+    except Exception as e:
+        logger.error(f"❌ Błąd autosave: {e}")
+        # Kontynuuj mimo błędu - nie przerywaj gry
     
     # AUTO-LOGOWANIE WYDARZEŃ
     try:

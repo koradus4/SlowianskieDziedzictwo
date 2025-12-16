@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import json
 from datetime import datetime
+import gzip
+import base64
 
 # Spróbuj zaimportować psycopg2 dla PostgreSQL (opcjonalnie)
 try:
@@ -152,6 +154,25 @@ class Database:
                 )
             """)
             
+            # Tabela kontekstu AI (kompresowana historia Gemini)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS ai_context (
+                    id {id_type},
+                    postac_id INTEGER,
+                    historia_compressed {text_type} NOT NULL,
+                    ostatnie_opcje {text_type},
+                    created_at {timestamp_default},
+                    FOREIGN KEY (postac_id) REFERENCES postacie(id)
+                )
+            """)
+            
+            # Migracja - dodaj kolumnę typ_zapisu jeśli nie istnieje
+            try:
+                cursor.execute("ALTER TABLE postacie ADD COLUMN typ_zapisu TEXT DEFAULT 'autosave'")
+                conn.commit()
+            except:
+                conn.rollback()  # Rollback jeśli kolumna już istnieje
+            
             conn.commit()
             conn.close()
             print("✅ Baza danych zainicjalizowana!")
@@ -162,8 +183,8 @@ class Database:
             print(f"❌ Błąd inicjalizacji bazy: {e}")
             raise
     
-    def zapisz_postac(self, postac: dict) -> int:
-        """Zapisuje postać do bazy"""
+    def zapisz_postac(self, postac: dict, typ_zapisu: str = 'autosave') -> int:
+        """Zapisuje postać do bazy z oznaczeniem typu zapisu"""
         conn = self._polacz()
         cursor = conn.cursor()
         
@@ -171,8 +192,8 @@ class Database:
         
         base_query = f"""
             INSERT INTO postacie 
-            (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, przeciwnicy_hp, lokacja)
-            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, przeciwnicy_hp, lokacja, typ_zapisu)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
         """
         
         params = (
@@ -189,7 +210,8 @@ class Database:
             json.dumps(postac.get('ekwipunek', [])),
             json.dumps(postac.get('towarzysze', [])),
             json.dumps(postac.get('przeciwnicy_hp', {})),
-            postac.get('lokacja', 'gniezno')
+            postac.get('lokacja', 'gniezno'),
+            typ_zapisu
         )
 
         if self.use_postgres:
@@ -340,16 +362,23 @@ class Database:
         
         return [{'nazwa': row['nazwa'], 'opis': row['opis']} for row in rows]
     
-    def lista_postaci(self, limit: int = 10) -> list:
-        """Lista zapisanych postaci do wczytania"""
-        print(f"🔍 lista_postaci: limit={limit}")
+    def lista_postaci(self, limit: int = 10, tylko_autosave: bool = False) -> list:
+        """Lista zapisanych postaci do wczytania (z timestampem)"""
+        print(f"🔍 lista_postaci: limit={limit}, tylko_autosave={tylko_autosave}")
         conn = self._polacz()
         cursor = conn.cursor()
         
         ph = self._placeholder()
+        
+        if tylko_autosave:
+            where_clause = "WHERE typ_zapisu = 'autosave'"
+        else:
+            where_clause = ""
+        
         zapytanie = f"""
-            SELECT id, imie, lud, klasa, hp, poziom, lokacja, created_at
+            SELECT id, imie, lud, klasa, hp, poziom, lokacja, typ_zapisu, created_at
             FROM postacie 
+            {where_clause}
             ORDER BY created_at DESC 
             LIMIT {ph}
         """
@@ -368,6 +397,7 @@ class Database:
             'hp': row['hp'],
             'poziom': row['poziom'],
             'lokacja': row['lokacja'],
+            'typ_zapisu': row.get('typ_zapisu', 'autosave'),
             'data': row['created_at']
         } for row in rows]
         print(f"🔍 Zwracam: {wynik}")
@@ -479,6 +509,131 @@ class Database:
         except Exception as e:
             print(f"❌ Błąd pobierania wydarzeń: {e}")
             return []
+        finally:
+            conn.close()
+    
+    # ===== FUNKCJE KOMPRESJI =====
+    
+    def _kompresuj_json(self, data: dict) -> str:
+        """Kompresuje JSON do base64-encoded gzip"""
+        json_str = json.dumps(data, ensure_ascii=False)
+        json_bytes = json_str.encode('utf-8')
+        compressed = gzip.compress(json_bytes, compresslevel=6)
+        return base64.b64encode(compressed).decode('ascii')
+    
+    def _dekompresuj_json(self, compressed_str: str) -> dict:
+        """Dekompresuje base64-encoded gzip do JSON"""
+        try:
+            compressed_bytes = base64.b64decode(compressed_str.encode('ascii'))
+            json_bytes = gzip.decompress(compressed_bytes)
+            json_str = json_bytes.decode('utf-8')
+            return json.loads(json_str)
+        except Exception as e:
+            print(f"❌ Błąd dekompresji kontekstu AI: {e}")
+            return []
+    
+    # ===== KONTEKST AI (HISTORIA GEMINI) =====
+    
+    def zapisz_ai_context(self, postac_id: int, historia_ai: list, ostatnie_opcje: list = None):
+        """Zapisuje skompresowany kontekst AI dla autosave"""
+        conn = self._polacz()
+        cursor = conn.cursor()
+        
+        try:
+            ph = self._placeholder()
+            historia_compressed = self._kompresuj_json(historia_ai)
+            opcje_json = json.dumps(ostatnie_opcje or [])
+            
+            cursor.execute(f"""
+                INSERT INTO ai_context (postac_id, historia_compressed, ostatnie_opcje)
+                VALUES ({ph}, {ph}, {ph})
+            """, (postac_id, historia_compressed, opcje_json))
+            
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Błąd zapisu kontekstu AI: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+    
+    def wczytaj_ai_context(self, postac_id: int) -> dict:
+        """Wczytuje najnowszy kontekst AI dla danej postaci"""
+        conn = self._polacz()
+        cursor = conn.cursor()
+        
+        try:
+            ph = self._placeholder()
+            cursor.execute(f"""
+                SELECT historia_compressed, ostatnie_opcje, created_at
+                FROM ai_context
+                WHERE postac_id = {ph}
+                ORDER BY created_at DESC
+                LIMIT 1
+            """, (postac_id,))
+            
+            row = cursor.fetchone()
+            
+            if not row:
+                return {'historia': [], 'opcje': []}
+            
+            historia = self._dekompresuj_json(row['historia_compressed'])
+            opcje = json.loads(row['ostatnie_opcje']) if row['ostatnie_opcje'] else []
+            
+            return {
+                'historia': historia,
+                'opcje': opcje,
+                'timestamp': row['created_at']
+            }
+        except Exception as e:
+            print(f"❌ Błąd odczytu kontekstu AI: {e}")
+            return {'historia': [], 'opcje': []}
+        finally:
+            conn.close()
+    
+    def usun_stare_autosavy(self, limit: int = 5):
+        """Usuwa najstarsze autosave'y jeśli przekroczono limit (zachowuje ostatnie N)"""
+        conn = self._polacz()
+        cursor = conn.cursor()
+        
+        try:
+            ph = self._placeholder()
+            
+            # Znajdź ID autosave'ów do usunięcia (starsze niż ostatnie N)
+            cursor.execute(f"""
+                SELECT p.id FROM postacie p
+                WHERE p.typ_zapisu = 'autosave'
+                ORDER BY p.created_at DESC
+                LIMIT -1 OFFSET {ph}
+            """, (limit,))
+            
+            stare_ids = [row['id'] if isinstance(row, dict) else row[0] for row in cursor.fetchall()]
+            
+            if stare_ids:
+                placeholders = ','.join([ph] * len(stare_ids))
+                
+                # Usuń kontekst AI
+                cursor.execute(f"DELETE FROM ai_context WHERE postac_id IN ({placeholders})", stare_ids)
+                
+                # Usuń historię
+                cursor.execute(f"DELETE FROM historia WHERE postac_id IN ({placeholders})", stare_ids)
+                
+                # Usuń wydarzenia
+                cursor.execute(f"DELETE FROM wydarzenia WHERE postac_id IN ({placeholders})", stare_ids)
+                
+                # Usuń postacie
+                cursor.execute(f"DELETE FROM postacie WHERE id IN ({placeholders})", stare_ids)
+                
+                conn.commit()
+                print(f"🗑️ Usunięto {len(stare_ids)} starych autosave'ów")
+                return len(stare_ids)
+            
+            return 0
+        except Exception as e:
+            print(f"❌ Błąd usuwania starych autosave'ów: {e}")
+            conn.rollback()
+            return 0
         finally:
             conn.close()
 

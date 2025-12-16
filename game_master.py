@@ -262,6 +262,32 @@ Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
         # Hugging Face fallback (opcjonalne)
         self.hf_api_token = os.getenv('HF_API_TOKEN')
         self.hf_model = os.getenv('HF_MODEL', '')
+    
+    # ===== EKSPORT/IMPORT HISTORII AI =====
+    
+    def get_historia(self) -> list:
+        """Eksportuje historię AI do zapisu"""
+        return self.historia.copy()
+    
+    def set_historia(self, historia: list):
+        """Importuje historię AI z zapisu"""
+        self.historia = historia if historia else []
+        self.logger.info(f"📂 Przywrócono historię AI: {len(self.historia)} wiadomości")
+    
+    def get_state(self) -> dict:
+        """Eksportuje pełny stan GameMaster (HP + historia)"""
+        return {
+            'aktualne_hp': self.aktualne_hp,
+            'hp_max': self.hp_max,
+            'historia': self.historia
+        }
+    
+    def set_state(self, state: dict):
+        """Importuje pełny stan GameMaster"""
+        self.aktualne_hp = state.get('aktualne_hp', 100)
+        self.hp_max = state.get('hp_max', 100)
+        self.historia = state.get('historia', [])
+        self.logger.info(f"📂 Przywrócono stan GM: HP={self.aktualne_hp}/{self.hp_max}, Historia={len(self.historia)} msg")
 
     def _switch_to_fallback_model(self):
         """Przełącza na następny model z listy fallbacków"""
