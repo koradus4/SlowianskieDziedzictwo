@@ -292,9 +292,13 @@
         lista.innerHTML = '<p style="color: #888;">Ładowanie zapisów...</p>';
         
             try {
-                const response = await fetch('/lista_zapisow', {
+                // Dodaj timestamp do URL aby uniknąć cache'owania
+                const response = await fetch(`/lista_zapisow?t=${Date.now()}`, {
                     method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
                 });
             const data = await response.json();
             
