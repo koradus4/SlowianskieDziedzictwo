@@ -404,21 +404,35 @@ class Database:
         return wynik
     
     def usun_postac(self, postac_id: int) -> bool:
-        """Usuwa postać i jej historię"""
+        """Usuwa postać i wszystkie powiązane dane"""
         conn = self._polacz()
         cursor = conn.cursor()
         
         try:
             ph = self._placeholder()
+            # Usuń kontekst AI
+            cursor.execute(f"DELETE FROM ai_context WHERE postac_id = {ph}", (postac_id,))
+            
             # Usuń historię
             cursor.execute(f"DELETE FROM historia WHERE postac_id = {ph}", (postac_id,))
+            
+            # Usuń wydarzenia
+            cursor.execute(f"DELETE FROM wydarzenia WHERE postac_id = {ph}", (postac_id,))
+            
+            # Usuń questy
+            cursor.execute(f"DELETE FROM questy WHERE postac_id = {ph}", (postac_id,))
+            
+            # Usuń artefakty
+            cursor.execute(f"DELETE FROM artefakty WHERE postac_id = {ph}", (postac_id,))
             
             # Usuń postać
             cursor.execute(f"DELETE FROM postacie WHERE id = {ph}", (postac_id,))
             
             conn.commit()
+            print(f"✅ Usunięto postać {postac_id} i wszystkie powiązane dane")
             return True
-        except Exception:
+        except Exception as e:
+            print(f"❌ Błąd usuwania postaci {postac_id}: {e}")
             conn.rollback()
             return False
         finally:
