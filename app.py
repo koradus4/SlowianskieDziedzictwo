@@ -784,6 +784,7 @@ def wczytaj_zapis(postac_id):
         session['postac_id'] = postac_id
         session['historia'] = db.wczytaj_historie(postac_id, limit=100)
         session['przeciwnicy_hp'] = postac.get('przeciwnicy_hp', {})
+        session['gra_wczytana'] = True  # FLAGA: blokuj auto-start nowej gry
         session.modified = True  # Wymuś zapis sesji
         
         # NOWE: Przywróć pełny kontekst AI (historia Gemini + opcje)

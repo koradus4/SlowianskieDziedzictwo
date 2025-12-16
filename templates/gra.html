@@ -395,7 +395,7 @@
             const stanResponse = await fetch('/stan_gry');
             const stan = await stanResponse.json();
             
-            if (stan.gra_aktywna && stan.historia_dlugosc > 0) {
+            if (stan.gra_aktywna && (stan.historia_dlugosc > 0 || stan.gra_wczytana)) {
                 // Gra już trwa - wczytaj ostatnią narrację
                 const narrResponse = await fetch('/ostatnia_narracja');
                 const narrData = await narrResponse.json();
