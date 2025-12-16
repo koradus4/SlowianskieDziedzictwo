@@ -397,7 +397,7 @@ class Database:
             'hp': row['hp'],
             'poziom': row['poziom'],
             'lokacja': row['lokacja'],
-            'typ_zapisu': row.get('typ_zapisu', 'autosave'),
+            'typ_zapisu': row['typ_zapisu'] if 'typ_zapisu' in row.keys() else 'autosave',
             'data': row['created_at']
         } for row in rows]
         print(f"🔍 Zwracam: {wynik}")
