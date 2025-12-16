@@ -600,15 +600,27 @@ class Database:
         try:
             ph = self._placeholder()
             
-            # Znajdź ID autosave'ów do usunięcia (starsze niż ostatnie N)
-            cursor.execute(f"""
-                SELECT p.id FROM postacie p
-                WHERE p.typ_zapisu = 'autosave'
-                ORDER BY p.created_at DESC
-                LIMIT -1 OFFSET {ph}
-            """, (limit,))
+            # Najpierw sprawdź ile jest autosave'ów
+            cursor.execute("""
+                SELECT COUNT(*) as cnt FROM postacie
+                WHERE typ_zapisu = 'autosave'
+            """)
+            result = cursor.fetchone()
+            total = result['cnt'] if isinstance(result, dict) else result[0]
             
-            stare_ids = [row['id'] if isinstance(row, dict) else row[0] for row in cursor.fetchall()]
+            # Jeśli jest więcej niż limit, usuń najstarsze
+            if total > limit:
+                ile_usunac = total - limit
+                cursor.execute(f"""
+                    SELECT p.id FROM postacie p
+                    WHERE p.typ_zapisu = 'autosave'
+                    ORDER BY p.created_at ASC
+                    LIMIT {ph}
+                """, (ile_usunac,))
+                
+                stare_ids = [row['id'] if isinstance(row, dict) else row[0] for row in cursor.fetchall()]
+            else:
+                stare_ids = []
             
             if stare_ids:
                 placeholders = ','.join([ph] * len(stare_ids))

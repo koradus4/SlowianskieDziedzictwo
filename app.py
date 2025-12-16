@@ -754,6 +754,19 @@ def usun_zapis(postac_id):
         return jsonify({'ok': False, 'error': f'Błąd: {str(e)}'})
 
 
+@app.route('/wyczysc_stare_autosavy', methods=['POST'])
+def wyczysc_stare_autosavy():
+    """Czyści wszystkie stare autosave'y poza ostatnimi 5"""
+    try:
+        logger.info("🧹 Czyszczenie starych autosave'ów...")
+        usunietych = db.usun_stare_autosavy(limit=5)
+        logger.info(f"✅ Usunięto {usunietych} starych zapisów")
+        return jsonify({'ok': True, 'usuniete': usunietych, 'message': f'Usunięto {usunietych} starych zapisów'})
+    except Exception as e:
+        logger.error(f"❌ Błąd czyszczenia: {e}")
+        return jsonify({'ok': False, 'error': str(e)})
+
+
 @app.route('/wczytaj_zapis/<int:postac_id>')
 def wczytaj_zapis(postac_id):
     """Wczytuje zapisaną grę z pełnym kontekstem AI"""

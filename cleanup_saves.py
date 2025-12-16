@@ -3,9 +3,9 @@ from pathlib import Path
 
 db = Database(Path('game.db'))
 
-print("Czyszczenie starych zapisow...")
-usunietych = db.usun_stare_autosavy(limit=5)
-print(f"Usunieto: {usunietych} starych zapisow")
+print("Usuwanie WSZYSTKICH zapisow...")
+usunietych = db.usun_stare_autosavy(limit=0)
+print(f"Usunieto: {usunietych} zapisow")
 
 print("\nSprawdzanie po czyszczeniu...")
 zapisy = db.lista_postaci(limit=10, tylko_autosave=True)
