@@ -661,7 +661,8 @@ def ostatnia_narracja():
         
         return jsonify({
             'narracja': ostatnia,
-            'opcje': ['Rozejrzyj się', 'Idź dalej', 'Kontynuuj'],
+            'opcje': session.get('ostatnie_opcje', ['Rozejrzyj się', 'Idź dalej', 'Kontynuuj']),
+            'uczestnicy': session.get('ostatni_uczestnicy', []),  # NOWE: przywróć NPC
             'hp_gracza': postac.get('hp'),
             'zloto': postac.get('zloto'),
             'ekwipunek': postac.get('ekwipunek', []),
@@ -787,10 +788,11 @@ def wczytaj_zapis(postac_id):
         session['gra_wczytana'] = True  # FLAGA: blokuj auto-start nowej gry
         session.modified = True  # Wymuś zapis sesji
         
-        # NOWE: Przywróć pełny kontekst AI (historia Gemini + opcje)
+        # NOWE: Przywróć pełny kontekst AI (historia Gemini + opcje + uczestnicy)
         ai_context = db.wczytaj_ai_context(postac_id)
         historia_ai = ai_context.get('historia', [])
         ostatnie_opcje = ai_context.get('opcje', [])
+        ostatni_uczestnicy = ai_context.get('uczestnicy', [])  # NOWE: NPC
         
         if historia_ai:
             game_master.set_historia(historia_ai)
@@ -802,10 +804,11 @@ def wczytaj_zapis(postac_id):
         game_master.aktualne_hp = postac['hp']
         game_master.hp_max = postac['hp_max']
         
-        # Zapisz opcje do sesji (użyjemy ich w interfejsie)
+        # Zapisz opcje i uczestników do sesji (użyjemy ich w interfejsie)
         session['ostatnie_opcje'] = ostatnie_opcje
+        session['ostatni_uczestnicy'] = ostatni_uczestnicy  # NOWE: przywróć NPC
         
-        logger.info(f"📂 Gra wczytana: {postac.get('imie')} (ID: {postac_id}), opcje: {len(ostatnie_opcje)}")
+        logger.info(f"📂 Gra wczytana: {postac.get('imie')} (ID: {postac_id}), opcje: {len(ostatnie_opcje)}, NPC: {len(ostatni_uczestnicy)}")
         return jsonify({'ok': True, 'redirect': '/gra'})
         
     except Exception as e:
@@ -1218,10 +1221,11 @@ def akcja():
         # 2. Utwórz NOWY autosave (nie aktualizuj starego!)
         nowy_postac_id = db.zapisz_postac(postac, typ_zapisu='autosave')
         
-        # 3. Zapisz kontekst AI dla nowego autosave
+        # 3. Zapisz kontekst AI dla nowego autosave (z uczestnikami!)
         historia_ai = game_master.get_historia()
         ostatnie_opcje = wynik.get('opcje', [])
-        db.zapisz_ai_context(nowy_postac_id, historia_ai, ostatnie_opcje)
+        ostatni_uczestnicy = wynik.get('uczestnicy', [])  # NOWE: zapisz NPC
+        db.zapisz_ai_context(nowy_postac_id, historia_ai, ostatnie_opcje, ostatni_uczestnicy)
         
         # 4. Zaktualizuj session z nowym ID
         session['postac_id'] = nowy_postac_id

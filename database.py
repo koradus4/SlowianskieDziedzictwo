@@ -161,6 +161,7 @@ class Database:
                     postac_id INTEGER,
                     historia_compressed {text_type} NOT NULL,
                     ostatnie_opcje {text_type},
+                    ostatni_uczestnicy {text_type},
                     created_at {timestamp_default},
                     FOREIGN KEY (postac_id) REFERENCES postacie(id)
                 )
@@ -169,6 +170,13 @@ class Database:
             # Migracja - dodaj kolumnę typ_zapisu jeśli nie istnieje
             try:
                 cursor.execute("ALTER TABLE postacie ADD COLUMN typ_zapisu TEXT DEFAULT 'autosave'")
+                conn.commit()
+            except:
+                conn.rollback()  # Rollback jeśli kolumna już istnieje
+            
+            # Migracja - dodaj kolumnę ostatni_uczestnicy do ai_context
+            try:
+                cursor.execute("ALTER TABLE ai_context ADD COLUMN ostatni_uczestnicy TEXT")
                 conn.commit()
             except:
                 conn.rollback()  # Rollback jeśli kolumna już istnieje
@@ -548,7 +556,7 @@ class Database:
     
     # ===== KONTEKST AI (HISTORIA GEMINI) =====
     
-    def zapisz_ai_context(self, postac_id: int, historia_ai: list, ostatnie_opcje: list = None):
+    def zapisz_ai_context(self, postac_id: int, historia_ai: list, ostatnie_opcje: list = None, ostatni_uczestnicy: list = None):
         """Zapisuje skompresowany kontekst AI dla autosave"""
         conn = self._polacz()
         cursor = conn.cursor()
@@ -557,11 +565,12 @@ class Database:
             ph = self._placeholder()
             historia_compressed = self._kompresuj_json(historia_ai)
             opcje_json = json.dumps(ostatnie_opcje or [])
+            uczestnicy_json = json.dumps(ostatni_uczestnicy or [])
             
             cursor.execute(f"""
-                INSERT INTO ai_context (postac_id, historia_compressed, ostatnie_opcje)
-                VALUES ({ph}, {ph}, {ph})
-            """, (postac_id, historia_compressed, opcje_json))
+                INSERT INTO ai_context (postac_id, historia_compressed, ostatnie_opcje, ostatni_uczestnicy)
+                VALUES ({ph}, {ph}, {ph}, {ph})
+            """, (postac_id, historia_compressed, opcje_json, uczestnicy_json))
             
             conn.commit()
             return True
@@ -580,7 +589,7 @@ class Database:
         try:
             ph = self._placeholder()
             cursor.execute(f"""
-                SELECT historia_compressed, ostatnie_opcje, created_at
+                SELECT historia_compressed, ostatnie_opcje, ostatni_uczestnicy, created_at
                 FROM ai_context
                 WHERE postac_id = {ph}
                 ORDER BY created_at DESC
@@ -590,14 +599,16 @@ class Database:
             row = cursor.fetchone()
             
             if not row:
-                return {'historia': [], 'opcje': []}
+                return {'historia': [], 'opcje': [], 'uczestnicy': []}
             
             historia = self._dekompresuj_json(row['historia_compressed'])
             opcje = json.loads(row['ostatnie_opcje']) if row['ostatnie_opcje'] else []
+            uczestnicy = json.loads(row['ostatni_uczestnicy']) if row.get('ostatni_uczestnicy') else []
             
             return {
                 'historia': historia,
                 'opcje': opcje,
+                'uczestnicy': uczestnicy,
                 'timestamp': row['created_at']
             }
         except Exception as e:
