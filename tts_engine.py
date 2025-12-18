@@ -139,10 +139,10 @@ class TTSEngine:
             print(f"Błąd syntezy: {e}")
             return None
     
-    def _syntezuj_google_tts(self, tekst: str, voice_name: str = "pl-PL-Wavenet-B") -> str:
+    def _syntezuj_google_tts(self, tekst: str, voice_name: str = "pl-PL-Wavenet-B", pitch: float = 0.0) -> str:
         """Generuje audio przez Google Cloud TTS i zwraca publiczny URL"""
-        print(f"🎙️ _syntezuj_google_tts: voice_name='{voice_name}', tekst_len={len(tekst)}")
-        logger.info(f"🎙️ _syntezuj_google_tts: voice_name='{voice_name}', tekst_len={len(tekst)}")
+        print(f"🎙️ _syntezuj_google_tts: voice_name='{voice_name}', pitch={pitch}, tekst_len={len(tekst)}")
+        logger.info(f"🎙️ _syntezuj_google_tts: voice_name='{voice_name}', pitch={pitch}, tekst_len={len(tekst)}")
         try:
             # Przygotuj żądanie
             synthesis_input = texttospeech.SynthesisInput(text=tekst)
@@ -157,21 +157,11 @@ class TTSEngine:
                 ssml_gender=gender
             )
             
-            # Ustaw pitch na podstawie głosu
-            pitch_map = {
-                "pl-PL-Wavenet-A": 2.0,   # Kobieta NPC - wyżej
-                "pl-PL-Wavenet-B": -2.0,  # Narrator/NPC męski - głębiej
-                "pl-PL-Wavenet-C": 0.0,   # Gracz mężczyzna - neutralnie
-                "pl-PL-Wavenet-D": 1.0,   # Kobieta (nieużywana)
-                "pl-PL-Wavenet-E": 1.5    # Graczka kobieta - delikatnie wyżej
-            }
-            pitch = pitch_map.get(voice_name, 0.0)
-            
-            # Konfiguracja audio
+            # Konfiguracja audio z custom pitch
             audio_config = texttospeech.AudioConfig(
                 audio_encoding=texttospeech.AudioEncoding.MP3,
                 speaking_rate=1.0,
-                pitch=pitch
+                pitch=pitch  # Używamy pitch z mapy
             )
             
             # Wywołaj API
@@ -200,12 +190,13 @@ class TTSEngine:
             
             # Mapowanie głosów - Google Cloud ma 5 polskich Wavenet głosów:
             # A (FEMALE), B (MALE), C (MALE), D (FEMALE), E (FEMALE)
+            # Używam pitch do różnicowania narrator vs NPC męski (oba B)
             voice_map = {
-                "narrator": "pl-PL-Wavenet-B",  # Męski głęboki (narrator)
-                "gracz_m": "pl-PL-Wavenet-C",    # Męski spokojny (bohater mężczyzna)
-                "gracz_k": "pl-PL-Wavenet-E",    # Kobieta delikatna (bohaterka kobieta)
-                "npc_m": "pl-PL-Wavenet-B",      # Męski głęboki (NPC mężczyzna) - używam B jak narrator
-                "npc_k": "pl-PL-Wavenet-A"       # Kobieta wyrazista (NPC kobieta)
+                "narrator": ("pl-PL-Wavenet-B", -2.0),   # Męski głęboki
+                "gracz_m": ("pl-PL-Wavenet-C", 0.0),     # Męski spokojny
+                "gracz_k": ("pl-PL-Wavenet-E", 1.5),     # Kobieta delikatna
+                "npc_m": ("pl-PL-Wavenet-B", 1.0),       # Męski wyżej (pitch różni od narratora)
+                "npc_k": ("pl-PL-Wavenet-A", 2.0)        # Kobieta wyrazista
             }
             
             # Generuj audio dla każdego segmentu
@@ -213,10 +204,10 @@ class TTSEngine:
                 if not tekst.strip():
                     continue
                 
-                voice_name = voice_map.get(voice_type, "pl-PL-Wavenet-B")
-                print(f"🎵 Segment: voice_type='{voice_type}' → voice_name='{voice_name}', tekst_len={len(tekst)}")
-                logger.info(f"🎵 Segment: voice_type='{voice_type}' → voice_name='{voice_name}', tekst_len={len(tekst)}")
-                audio_bytes = self._syntezuj_google_tts(tekst, voice_name)
+                voice_name, pitch = voice_map.get(voice_type, ("pl-PL-Wavenet-B", -2.0))
+                print(f"🎵 Segment: voice_type='{voice_type}' → voice_name='{voice_name}', pitch={pitch}, tekst_len={len(tekst)}")
+                logger.info(f"🎵 Segment: voice_type='{voice_type}' → voice_name='{voice_name}', pitch={pitch}, tekst_len={len(tekst)}")
+                audio_bytes = self._syntezuj_google_tts(tekst, voice_name, pitch)
                 
                 if audio_bytes:
                     # Konwertuj bytes na AudioSegment
