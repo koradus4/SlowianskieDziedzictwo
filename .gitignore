@@ -40,6 +40,11 @@ flask_session/
 audio/*.wav
 audio/*.mp3
 
+# Voice models (too large for git, ~60MB each)
+glosy_lokalnie/
+*.onnx
+*.onnx.json
+
 # Logs
 logs/*.log
 logs/*.json
