@@ -122,10 +122,23 @@
             </div>
         </div>
         
-        <!-- Quest -->
+        <!-- Questy -->
         <div class="card">
-            <h2>📜 Aktywny Quest</h2>
-            <p id="quest-display" style="color: #5a9a5a;">Zjednoczenie Plemion</p>
+            <h2>📜 Zadania</h2>
+            
+            <!-- Quest główny -->
+            <div id="quest-glowny" style="display: none; background: rgba(255, 215, 0, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #ffd700;">
+                <div style="font-size: 0.75em; color: #888; margin-bottom: 3px;">⭐ QUEST GŁÓWNY</div>
+                <div id="quest-glowny-tekst" style="font-size: 0.95em; color: #ffd700; font-weight: 500;"></div>
+            </div>
+            
+            <!-- Questy poboczne -->
+            <div id="questy-poboczne-container"></div>
+            
+            <!-- Placeholder gdy brak questów -->
+            <div id="brak-questow" style="color: #888; font-style: italic; font-size: 0.9em;">
+                Brak aktywnych zadań...
+            </div>
         </div>
         
         <!-- Mapa usunięta - nieużywana funkcja wizualna -->
@@ -726,11 +739,8 @@
             aktualizujUczestnikow(data.uczestnicy);
         }
         
-        // Quest
-        if (data.quest_aktywny) {
-            const questEl = document.getElementById('quest-display');
-            if (questEl) questEl.textContent = data.quest_aktywny;
-        }
+        // Questy (główny + poboczne)
+        aktualizujQuesty(data);
         
         // Opcje
         if (data.opcje && data.opcje.length > 0) {
@@ -882,10 +892,8 @@
                 document.getElementById('lokacja-display').textContent = data.lokacja;
             }
             
-            // Zaktualizuj quest
-            if (data.quest_aktywny) {
-                document.getElementById('quest-display').textContent = data.quest_aktywny;
-            }
+            // Zaktualizuj questy (główny + poboczne)
+            aktualizujQuesty(data);
             
             if (data.opcje && data.opcje.length > 0) {
                 const optionsContainer = document.getElementById('options-container');
@@ -1058,6 +1066,63 @@
                 </div>
             `;
         }).join('');
+    }
+
+    // ===== QUESTY =====
+    function aktualizujQuesty(data) {
+        // Quest główny
+        const questGlowny = document.getElementById('quest-glowny');
+        const questGlownyTekst = document.getElementById('quest-glowny-tekst');
+        const brakQuestow = document.getElementById('brak-questow');
+        
+        let maQuesty = false;
+        
+        if (data.quest_aktywny) {
+            questGlownyTekst.textContent = data.quest_aktywny;
+            questGlowny.style.display = 'block';
+            maQuesty = true;
+        } else {
+            questGlowny.style.display = 'none';
+        }
+        
+        // Questy poboczne
+        const kontener = document.getElementById('questy-poboczne-container');
+        kontener.innerHTML = '';
+        
+        if (data.questy_poboczne && data.questy_poboczne.length > 0) {
+            maQuesty = true;
+            data.questy_poboczne.forEach(quest => {
+                const div = document.createElement('div');
+                
+                // Kolor ramki zależny od statusu
+                const borderColor = quest.status === 'ukończony' ? '#28a745' : '#4a9eff';
+                const bgColor = quest.status === 'ukończony' ? 'rgba(40, 167, 69, 0.1)' : 'rgba(74, 154, 255, 0.1)';
+                
+                div.style.cssText = `background: ${bgColor}; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid ${borderColor};`;
+                
+                let html = '<div style="font-size: 0.75em; color: #888; margin-bottom: 3px;">';
+                html += quest.status === 'ukończony' ? '✅ UKOŃCZONY' : '📜 AKTYWNY';
+                html += '</div>';
+                html += '<div style="font-size: 0.95em; font-weight: 500; margin-bottom: 5px;">' + quest.nazwa + '</div>';
+                
+                // Postęp (jeśli quest ma licznik)
+                if (quest.postep !== undefined && quest.cel !== undefined) {
+                    const procent = Math.round((quest.postep / quest.cel) * 100);
+                    html += '<div style="font-size: 0.8em; color: #aaa; margin-bottom: 5px;">Postęp: ' + quest.postep + '/' + quest.cel + '</div>';
+                    
+                    // Pasek postępu
+                    html += '<div style="background: rgba(0,0,0,0.3); height: 6px; border-radius: 3px; overflow: hidden;">';
+                    html += '<div style="background: linear-gradient(90deg, #4a9eff, #7cb9ff); height: 100%; width: ' + procent + '%;"></div>';
+                    html += '</div>';
+                }
+                
+                div.innerHTML = html;
+                kontener.appendChild(div);
+            });
+        }
+        
+        // Pokaż/ukryj placeholder
+        brakQuestow.style.display = maQuesty ? 'none' : 'block';
     }
 
     // Map UI has been removed — all related functions are disabled

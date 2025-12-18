@@ -31,6 +31,9 @@ from lokacje import pobierz_wszystkie_miasta, PLEMIONA, pobierz_podpowiedzi_dla_
 app = Flask(__name__)
 app.secret_key = 'slowianski_sekret_2025'
 app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+app.config['SESSION_FILE_THRESHOLD'] = 500  # Maksymalna liczba sesji w pamięci
 Session(app)
 
 # Ścieżki
@@ -1203,6 +1206,11 @@ def akcja():
     if nowy_quest is not None:  # Może być None (quest zakończony) lub string
         postac['quest_aktywny'] = nowy_quest
     
+    # Aktualizuj questy poboczne
+    questy_poboczne = wynik.get('questy_poboczne')
+    if questy_poboczne is not None:
+        postac['questy_poboczne'] = questy_poboczne
+    
     # Zapisz zaktualizowaną postać do sesji
     session['postac'] = postac
     
@@ -1333,6 +1341,7 @@ def akcja():
         "uczestnicy": uczestnicy_z_hp,  # NOWE: wrogowie/NPC/bestie z HP
         "opcje": wynik.get('opcje', []),
         "quest_aktywny": wynik.get('quest_aktywny'),
+        "questy_poboczne": wynik.get('questy_poboczne', []),
         "hp_gracza": wynik.get('hp_gracza', 100),
         "zloto": postac.get('zloto', 0),
         "ekwipunek": ekwipunek_aktualny,

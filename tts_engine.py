@@ -37,7 +37,10 @@ class TTSEngine:
         self.podcast_dir = Path(podcast_dir)
         self.piper_exe = self.podcast_dir / "piper" / "piper.exe"
         self.espeak_data = self.podcast_dir / "piper" / "espeak-ng-data"
-        self.voices_dir = self.podcast_dir / "voices"
+        
+        # Ścieżka do głosów lokalnych (w katalogu projektu)
+        project_root = Path(__file__).parent
+        self.voices_dir = project_root / "glosy_lokalnie"
         
         # Ścieżki do głosów (Piper lokalnie)
         self.glosy = {
@@ -363,8 +366,27 @@ class TTSEngine:
         return segments
     
     def _okresl_glos(self, speaker: str, plec_gracza: str) -> str:
-        """Wymusza użycie jednego głosu (jarvis) dla całej narracji."""
-        # Upraszczamy: niezależnie od mówiącego zwracamy jarvis, by uniknąć braków modeli
+        """Dobiera głos na podstawie mówiącego i płci"""
+        speaker_lower = speaker.lower()
+        
+        # Narrator - głęboki męski głos
+        if 'narrator' in speaker_lower:
+            return 'jarvis'
+        
+        # Gracz - zależnie od płci
+        if 'gracz' in speaker_lower:
+            if plec_gracza == 'kobieta':
+                return 'zenski'
+            else:
+                return 'meski'
+        
+        # NPC - sprawdź oznaczenie [M]/[K]
+        if '[m]' in speaker_lower:
+            return 'darkman'  # Mężczyzna NPC
+        elif '[k]' in speaker_lower:
+            return 'justyna'  # Kobieta NPC
+        
+        # Domyślnie narrator
         return 'jarvis'
     
     def _sklej_audio(self, audio_files: list) -> Path:

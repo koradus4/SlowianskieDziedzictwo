@@ -36,11 +36,20 @@ class Database:
     def _polacz(self):
         """Zwraca połączenie do bazy (SQLite lub PostgreSQL)"""
         if self.use_postgres:
-            return psycopg2.connect(self.database_url, cursor_factory=RealDictCursor)
+            conn = psycopg2.connect(self.database_url, cursor_factory=RealDictCursor)
+            # Ustaw timeout dla PostgreSQL (30 sekund)
+            conn.set_session(autocommit=False)
         else:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, timeout=30.0, check_same_thread=False)
             conn.row_factory = sqlite3.Row
-            return conn
+            # Optymalizacje SQLite
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=30000")
+        return conn
+    
+    def get_connection(self):
+        """Publiczna metoda do pobierania połączenia (dla testów)"""
+        return self._polacz()
     
     def _placeholder(self):
         """Zwraca odpowiedni placeholder dla bazy (%s dla Postgres, ? dla SQLite)"""
@@ -188,6 +197,13 @@ class Database:
             except:
                 conn.rollback()  # Rollback jeśli kolumna już istnieje
             
+            # Migracja - dodaj kolumnę questy_poboczne do postacie
+            try:
+                cursor.execute("ALTER TABLE postacie ADD COLUMN questy_poboczne TEXT DEFAULT '[]'")
+                conn.commit()
+            except:
+                conn.rollback()  # Rollback jeśli kolumna już istnieje
+            
             conn.commit()
             conn.close()
             print("✅ Baza danych zainicjalizowana!")
@@ -207,8 +223,8 @@ class Database:
         
         base_query = f"""
             INSERT INTO postacie 
-            (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, przeciwnicy_hp, lokacja, typ_zapisu, quest_aktywny)
-            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            (imie, plec, lud, klasa, hp, hp_max, poziom, doswiadczenie, zloto, statystyki, ekwipunek, towarzysze, przeciwnicy_hp, lokacja, typ_zapisu, quest_aktywny, questy_poboczne)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
         """
         
         params = (
@@ -227,7 +243,8 @@ class Database:
             json.dumps(postac.get('przeciwnicy_hp', {})),
             postac.get('lokacja', 'gniezno'),
             typ_zapisu,
-            postac.get('quest_aktywny')
+            postac.get('quest_aktywny'),
+            json.dumps(postac.get('questy_poboczne', []))
         )
 
         if self.use_postgres:
@@ -275,7 +292,9 @@ class Database:
             'ekwipunek': json.loads(row['ekwipunek']) if row['ekwipunek'] else [],
             'towarzysze': json.loads(row['towarzysze']) if row['towarzysze'] else [],
             'przeciwnicy_hp': json.loads(przeciwnicy_hp_raw) if przeciwnicy_hp_raw else {},
-            'lokacja': row['lokacja']
+            'lokacja': row['lokacja'],
+            'quest_aktywny': row.get('quest_aktywny') if isinstance(row, dict) else (row['quest_aktywny'] if 'quest_aktywny' in row.keys() else None),
+            'questy_poboczne': json.loads(row.get('questy_poboczne') if isinstance(row, dict) else (row['questy_poboczne'] if 'questy_poboczne' in row.keys() else '[]')) if (row.get('questy_poboczne') if isinstance(row, dict) else (row['questy_poboczne'] if 'questy_poboczne' in row.keys() else None)) else []
         }
     
     def aktualizuj_postac(self, postac_id: int, dane: dict):

@@ -106,7 +106,11 @@ PRZYKŁAD KONKRETNY - GRACZ W LESIE SPOTYKA 3 WILKI:
         {{"imie": "Trzeci Wilk", "typ": "bestia", "hp_max": 42, "hp": 42}}
     ],
     "opcje": ["Zaatakuj wilki", "Spróbuj uciec", "Wdrap się na drzewo"],
-    "quest_aktywny": "Opis aktywnego zadania lub null",
+    "quest_aktywny": "Opis aktywnego zadania głównego lub null",
+    "questy_poboczne": [
+        {{"id": 1, "nazwa": "Zbierz 10 ziół", "status": "aktywny", "postep": 0, "cel": 10}},
+        {{"id": 2, "nazwa": "Zabij bandytę", "status": "aktywny"}}
+    ],
     "walka": false,
     "artefakty_zebrane": []
 }}
@@ -217,6 +221,28 @@ WAŻNE O "towarzysze":
   * Gdy towarzysz daje graczowi złoto: dodaj graczowi (zloto_zmiana: +X) i usuń/zmniejsz "X złotych monet" z ekwipunku towarzysza
   * Przykład: Gracz daje 2 złote Bogdanowi → zloto_zmiana: -2, Bogdan.ekwipunek: ["Miecz", "2 złote monety"]
 - Towarzysze mogą dzielić się przedmiotami z graczem (na prośbę)
+
+WAŻNE O "quest_aktywny" i "questy_poboczne":
+- **quest_aktywny** = główne zadanie fabularne (1 naraz):
+  * Przykład: "Zjednocz 5 plemion słowiańskich", "Znajdź Szczerbiec", "Pokonaj Smoka Wawelskiego"
+  * To najważniejszy cel - prowadzi fabułę do przodu
+- **questy_poboczne** = dodatkowe zadania (max 5 naraz):
+  * Struktura: {{"id": numer, "nazwa": "Krótka nazwa", "status": "aktywny"/"ukończony", "postep": licznik, "cel": licznik_max}}
+  * Przykłady: "Zbierz 10 ziół leczniczych", "Zabij 3 wilki", "Dostarcz list do Krakowa"
+  * Używaj pola "postep" dla questów z licznikiem (np. zbieranie przedmiotów)
+- **DODAWANIE QUESTA:**
+  * Gdy NPC proponuje zadanie - dodaj do "questy_poboczne" z status="aktywny"
+  * Nadaj unikalne ID (liczba 1, 2, 3...)
+- **AKTUALIZACJA POSTĘPU:**
+  * Gdy gracz zdobywa przedmiot/zabija wroga - zwiększ "postep"
+  * Przykład: Quest "Zbierz 10 ziół" (postep: 7/10) → gracz zrywaa 2 zioła → postep: 9/10
+- **UKOŃCZENIE QUESTA:**
+  * Gdy postep >= cel LUB gracz wykonał zadanie - zmień status na "ukończony"
+  * Usuń ukończone questy z listy po nagrozdzie (lub zostaw dla historii)
+- **NAGRODY:**
+  * Gdy quest ukończony - użyj "transakcje" do wypłaty nagrody
+  * Przykład: zloto_zmiana: 50, przedmioty_dodane: ["Mikstura zdrowia"]
+- **LIMIT:** Gracz może mieć max 5 questów pobocznych naraz (nie licząc ukończonych)
 
 Bądź kreatywny, wciągający i sprawiedliwy jako Mistrz Gry!"""
 
