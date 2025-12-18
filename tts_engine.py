@@ -281,6 +281,7 @@ class TTSEngine:
     def syntezuj_multi_voice(self, tekst: str, plec_gracza: str = "mezczyzna") -> str:
         """
         Syntezuje tekst z wieloma głosami (Cloud TTS) lub pojedynczym (Piper)
+        VERSION: 2025-12-18 22:45 - Multi-voice fixed
         """
         print(f"🎤 syntezuj_multi_voice: use_cloud_tts={self.use_cloud_tts}, tekst_len={len(tekst)}")
         logger.info(f"🎤 syntezuj_multi_voice: use_cloud_tts={self.use_cloud_tts}, tekst_len={len(tekst)}")
