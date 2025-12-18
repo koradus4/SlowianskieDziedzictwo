@@ -380,11 +380,27 @@ class TTSEngine:
             else:
                 return 'meski'
         
-        # NPC - sprawdź oznaczenie [M]/[K]
+        # NPC - sprawdź oznaczenie [M]/[K] lub typowe męskie/żeńskie imiona
         if '[m]' in speaker_lower:
             return 'darkman'  # Mężczyzna NPC
         elif '[k]' in speaker_lower:
             return 'justyna'  # Kobieta NPC
+        
+        # Typowe żeńskie zakończenia imion słowiańskich
+        zenskie_zakonczenia = ('a', 'na', 'wa', 'ka', 'ta')
+        # Wyłączenia - męskie imiona kończące się na 'a'
+        meskie_wyjatki = ('kuba', 'barnaba', 'kosma')
+        
+        # Sprawdź czy to NPC po imieniu
+        imie_parts = speaker_lower.split()
+        if len(imie_parts) > 0:
+            pierwsze_slowo = imie_parts[0]
+            # Jeśli to typowo żeńskie imię
+            if pierwsze_slowo.endswith(zenskie_zakonczenia) and pierwsze_slowo not in meskie_wyjatki:
+                return 'justyna'  # Kobieta NPC
+            # Jeśli to typowo męskie (lub nie pasuje do żeńskich)
+            elif not pierwsze_slowo.endswith(zenskie_zakonczenia):
+                return 'darkman'  # Mężczyzna NPC
         
         # Domyślnie narrator
         return 'jarvis'
