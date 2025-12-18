@@ -9,6 +9,14 @@ import uuid
 import re
 import wave
 import tempfile
+import logging
+
+# Importuj skonfigurowany logger z game_logger (jeśli dostępny)
+try:
+    from game_logger import logger
+except ImportError:
+    # Fallback jeśli game_logger nie istnieje
+    logger = logging.getLogger("SlowianskieDziedzictwo")
 
 # Spróbuj zaimportować Google Cloud Storage i TTS
 try:
@@ -274,6 +282,9 @@ class TTSEngine:
         """
         Syntezuje tekst z wieloma głosami (Cloud TTS) lub pojedynczym (Piper)
         """
+        print(f"🎤 syntezuj_multi_voice: use_cloud_tts={self.use_cloud_tts}, tekst_len={len(tekst)}")
+        logger.info(f"🎤 syntezuj_multi_voice: use_cloud_tts={self.use_cloud_tts}, tekst_len={len(tekst)}")
+        
         # Cloud TTS - wielogłosowa synteza
         if self.use_cloud_tts:
             segments = self._parsuj_dialogi_cloud(tekst, plec_gracza)
@@ -285,83 +296,205 @@ class TTSEngine:
                 return self._syntezuj_google_tts_single(tekst_czysty)
         
         # Piper lokalnie - wielogłosowa synteza (stary kod)
+        print("🎤 Używam Piper lokalnie")
+        logger.info("🎤 Używam Piper lokalnie")
         segments = self._parsuj_dialogi(tekst, plec_gracza)
         
+        print(f"🎤 segments={len(segments)}")
+        logger.info(f"🎤 segments={len(segments)}")
+        
         if not segments:
+            print("🎤 Brak segmentów, używam jarvis fallback")
+            logger.info("🎤 Brak segmentów, używam jarvis fallback")
             return self.syntezuj(tekst, "jarvis")
         
         audio_files = []
         for speaker, text in segments:
             if text.strip():
+                print(f"🎤 Syntetyzuję: speaker={speaker}, len={len(text)}")
+                logger.info(f"🎤 Syntetyzuję: speaker={speaker}, len={len(text)}")
                 audio_path = self.syntezuj(text, speaker)
+                print(f"🎤 Rezultat: {audio_path}")
+                logger.info(f"🎤 Rezultat: {audio_path}")
                 if audio_path:
                     audio_files.append(Path(audio_path))
         
+        print(f"🎤 audio_files={len(audio_files)}")
+        logger.info(f"🎤 audio_files={len(audio_files)}")
+        
         if not audio_files:
+            print("🎤 BRAK audio_files - zwracam None!")
+            logger.warning("🎤 BRAK audio_files - zwracam None!")
             return None
         
         if len(audio_files) == 1:
-            return str(audio_files[0])
+            result = str(audio_files[0])
+            print(f"🎤 Zwracam pojedynczy plik: {result}")
+            logger.info(f"🎤 Zwracam pojedynczy plik: {result}")
+            return result
         
-        return str(self._sklej_audio(audio_files))
+        result = str(self._sklej_audio(audio_files))
+        print(f"🎤 Zwracam sklejone audio: {result}")
+        logger.info(f"🎤 Zwracam sklejone audio: {result}")
+        return result
     
     def _parsuj_dialogi_cloud(self, tekst: str, plec_gracza: str = "mezczyzna") -> list:
         """
         Parsuje tekst dla Cloud TTS i zwraca listę (typ_głosu, tekst).
-        **Narrator:** → narrator
-        **Gracz:** → gracz_m (mężczyzna) lub gracz_k (kobieta)
-        **NPC [M]:** → npc_m
-        **NPC [K]:** → npc_k
+        Format: Mówca: tekst (gwiazdki ** są już usunięte przez game_master)
+        Narrator: → narrator
+        Gracz: → gracz_m (mężczyzna) lub gracz_k (kobieta)
+        NPC [M]: → npc_m
+        NPC [K]: → npc_k
         """
         segments = []
         
-        # Regex: **cokolwiek:** tekst (do następnego ** lub końca)
-        pattern = r'\*\*([^:]+):\*\*\s*([^*]+?)(?=\*\*|$)'
-        matches = re.findall(pattern, tekst, re.DOTALL)
+        logger.info(f"🔍 CLOUD TTS _parsuj_dialogi_cloud: zaczynamy parsowanie...")
+        logger.info(f"   Tekst (pierwsze 200 znaków): {tekst[:200]}")
         
-        for speaker_raw, text in matches:
-            speaker = speaker_raw.strip()
-            text = text.strip()
-            
-            if not text:
+        # Split tekstu na linie z oznaczeniami i bez
+        lines = tekst.split('\n')
+        current_speaker = "Narrator"  # Domyślny mówca
+        current_text = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
                 continue
             
-            # Określ typ głosu
-            if "Narrator" in speaker or "narrator" in speaker:
-                voice_type = "narrator"
-            elif "Gracz" in speaker or "gracz" in speaker:
-                # Użyj płci gracza do wyboru głosu
-                voice_type = "gracz_k" if plec_gracza == "kobieta" else "gracz_m"
-            elif "[K]" in speaker or "[k]" in speaker:
-                voice_type = "npc_k"
-            elif "[M]" in speaker or "[m]" in speaker:
-                voice_type = "npc_m"
+            # Sprawdź czy linia zaczyna się od oznaczenia mówcy
+            match = re.match(r'^([A-ZŁŚŻŹĆŃ][a-ząęółśżźćń]+(?:\s+\[[MK]\])?):(.+)', line)
+            
+            if match:
+                # Nowy mówca - zapisz poprzedni segment
+                if current_text:
+                    full_text = '\n'.join(current_text).strip()
+                    if full_text:
+                        voice_type = self._okresl_glos_cloud(current_speaker, plec_gracza)
+                        logger.info(f"   → Segment: speaker='{current_speaker}', voice={voice_type}, tekst_len={len(full_text)}")
+                        segments.append((voice_type, full_text))
+                
+                # Nowy mówca
+                current_speaker = match.group(1).strip()
+                current_text = [match.group(2).strip()]
+            else:
+                # Kontynuacja tekstu poprzedniego mówcy lub narracja bez oznaczenia
+                if not current_text:
+                    # Tekst bez mówcy na początku - to narrator
+                    current_speaker = "Narrator"
+                current_text.append(line)
+        
+        # Zapisz ostatni segment
+        if current_text:
+            full_text = '\n'.join(current_text).strip()
+            if full_text:
+                voice_type = self._okresl_glos_cloud(current_speaker, plec_gracza)
+                logger.info(f"   → Segment: speaker='{current_speaker}', voice={voice_type}, tekst_len={len(full_text)}")
+                segments.append((voice_type, full_text))
+        
+        logger.info(f"   Znaleziono {len(segments)} segmentów")
+        
+        return segments
+    
+    def _okresl_glos_cloud(self, speaker: str, plec_gracza: str) -> str:
+        """Określa typ głosu dla Cloud TTS na podstawie mówcy"""
+        speaker_lower = speaker.lower()
+        
+        logger.info(f"🔍 CLOUD TTS _okresl_glos_cloud: speaker='{speaker}', plec_gracza='{plec_gracza}'")
+        
+        # Określ typ głosu
+        if "narrator" in speaker_lower:
+            voice_type = "narrator"
+            logger.info(f"  → NARRATOR → narrator")
+        elif "gracz" in speaker_lower:
+            # Użyj płci gracza do wyboru głosu
+            voice_type = "gracz_k" if plec_gracza == "kobieta" else "gracz_m"
+            logger.info(f"  → GRACZ ({plec_gracza}) → {voice_type}")
+        elif "[k]" in speaker_lower:
+            voice_type = "npc_k"
+            logger.info(f"  → NPC [K] → npc_k")
+        elif "[m]" in speaker_lower:
+            voice_type = "npc_m"
+            logger.info(f"  → NPC [M] → npc_m")
+        else:
+            # Inteligentne rozpoznawanie po imieniu
+            zenskie_zakonczenia = ('a', 'na', 'wa', 'ka', 'ta')
+            meskie_wyjatki = ('kuba', 'barnaba', 'kosma')
+            
+            imie_parts = speaker_lower.split()
+            if len(imie_parts) > 0:
+                pierwsze_slowo = imie_parts[0]
+                logger.info(f"  → Sprawdzam imię NPC: '{pierwsze_slowo}'")
+                
+                if pierwsze_slowo.endswith(zenskie_zakonczenia) and pierwsze_slowo not in meskie_wyjatki:
+                    voice_type = "npc_k"
+                    logger.info(f"  → NPC ŻEŃSKI (końcówka '{pierwsze_slowo[-2:]}') → npc_k")
+                else:
+                    voice_type = "npc_m"
+                    logger.info(f"  → NPC MĘSKI → npc_m")
             else:
                 # Domyślnie narrator
                 voice_type = "narrator"
-            
-            segments.append((voice_type, text))
+                logger.info(f"  → DOMYŚLNY → narrator")
         
-        return segments
+        return voice_type
     
     def _parsuj_dialogi(self, tekst: str, plec_gracza: str) -> list:
         """
         Parsuje tekst i zwraca listę (głos, tekst).
-        Format: **Mówca:** tekst lub **Mówca [M/K]:** tekst
+        Format: Mówca: tekst (gwiazdki ** są już usunięte przez game_master)
         """
         segments = []
         
-        # Regex: **cokolwiek:** dowolny tekst (do następnego ** lub końca)
-        pattern = r'\*\*([^:]+):\*\*\s*([^*]+?)(?=\*\*|$)'
-        matches = re.findall(pattern, tekst, re.DOTALL)
+        print(f"🔍 PIPER _parsuj_dialogi: zaczynamy parsowanie...")
+        print(f"   Tekst (pierwsze 200 znaków): {tekst[:200]}")
+        logger.info(f"🔍 PIPER _parsuj_dialogi: zaczynamy parsowanie...")
+        logger.info(f"   Tekst (pierwsze 200 znaków): {tekst[:200]}")
         
-        for speaker_raw, text in matches:
-            speaker = speaker_raw.strip()
-            text = text.strip()
+        # Split tekstu na linie z oznaczeniami i bez
+        lines = tekst.split('\n')
+        current_speaker = "Narrator"  # Domyślny mówca
+        current_text = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
             
-            # Określ głos
-            voice = self._okresl_glos(speaker, plec_gracza)
-            segments.append((voice, text))
+            # Sprawdź czy linia zaczyna się od oznaczenia mówcy
+            match = re.match(r'^([A-ZŁŚŻŹĆŃ][a-ząęółśżźćń]+(?:\s+\[[MK]\])?):(.+)', line)
+            
+            if match:
+                # Nowy mówca - zapisz poprzedni segment
+                if current_text:
+                    full_text = '\n'.join(current_text).strip()
+                    if full_text:
+                        print(f"   → Segment: speaker='{current_speaker}', tekst_len={len(full_text)}")
+                        logger.info(f"   → Segment: speaker='{current_speaker}', tekst_len={len(full_text)}")
+                        voice = self._okresl_glos(current_speaker, plec_gracza)
+                        segments.append((voice, full_text))
+                
+                # Nowy mówca
+                current_speaker = match.group(1).strip()
+                current_text = [match.group(2).strip()]
+            else:
+                # Kontynuacja tekstu poprzedniego mówcy lub narracja bez oznaczenia
+                if not current_text:
+                    # Tekst bez mówcy na początku - to narrator
+                    current_speaker = "Narrator"
+                current_text.append(line)
+        
+        # Zapisz ostatni segment
+        if current_text:
+            full_text = '\n'.join(current_text).strip()
+            if full_text:
+                print(f"   → Segment: speaker='{current_speaker}', tekst_len={len(full_text)}")
+                logger.info(f"   → Segment: speaker='{current_speaker}', tekst_len={len(full_text)}")
+                voice = self._okresl_glos(current_speaker, plec_gracza)
+                segments.append((voice, full_text))
+        
+        print(f"   Znaleziono {len(segments)} segmentów")
+        logger.info(f"   Znaleziono {len(segments)} segmentów")
         
         return segments
     
@@ -369,22 +502,27 @@ class TTSEngine:
         """Dobiera głos na podstawie mówiącego i płci"""
         speaker_lower = speaker.lower()
         
+        print(f"🔍 DEBUG _okresl_glos: speaker='{speaker}', plec_gracza='{plec_gracza}'")
+        logger.info(f"🔍 DEBUG _okresl_glos: speaker='{speaker}', plec_gracza='{plec_gracza}'")
+        
         # Narrator - głęboki męski głos
         if 'narrator' in speaker_lower:
+            logger.info(f"  → NARRATOR → jarvis")
             return 'jarvis'
         
         # Gracz - zależnie od płci
         if 'gracz' in speaker_lower:
-            if plec_gracza == 'kobieta':
-                return 'zenski'
-            else:
-                return 'meski'
+            glos = 'zenski' if plec_gracza == 'kobieta' else 'meski'
+            logger.info(f"  → GRACZ ({plec_gracza}) → {glos}")
+            return glos
         
         # NPC - sprawdź oznaczenie [M]/[K] lub typowe męskie/żeńskie imiona
         if '[m]' in speaker_lower:
-            return 'darkman'  # Mężczyzna NPC
+            logger.info(f"  → NPC [M] → darkman")
+            return 'darkman'
         elif '[k]' in speaker_lower:
-            return 'justyna'  # Kobieta NPC
+            logger.info(f"  → NPC [K] → justyna")
+            return 'justyna'
         
         # Typowe żeńskie zakończenia imion słowiańskich
         zenskie_zakonczenia = ('a', 'na', 'wa', 'ka', 'ta')
@@ -395,14 +533,18 @@ class TTSEngine:
         imie_parts = speaker_lower.split()
         if len(imie_parts) > 0:
             pierwsze_slowo = imie_parts[0]
+            logger.info(f"  → Sprawdzam imię: '{pierwsze_slowo}'")
             # Jeśli to typowo żeńskie imię
             if pierwsze_slowo.endswith(zenskie_zakonczenia) and pierwsze_slowo not in meskie_wyjatki:
-                return 'justyna'  # Kobieta NPC
+                logger.info(f"  → NPC ŻEŃSKI (końcówka '{pierwsze_slowo[-2:]}') → justyna")
+                return 'justyna'
             # Jeśli to typowo męskie (lub nie pasuje do żeńskich)
             elif not pierwsze_slowo.endswith(zenskie_zakonczenia):
-                return 'darkman'  # Mężczyzna NPC
+                logger.info(f"  → NPC MĘSKI (brak żeńskiej końcówki) → darkman")
+                return 'darkman'
         
         # Domyślnie narrator
+        logger.info(f"  → DOMYŚLNY → jarvis")
         return 'jarvis'
     
     def _sklej_audio(self, audio_files: list) -> Path:

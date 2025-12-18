@@ -65,12 +65,27 @@ Zawsze formatuj tekst narracyjny według poniższego schematu, aby różne posta
 
 **[Imię NPC] [K]:** "Dialog kobiecej postaci w cudzysłowie." - Dla kobiecych NPC dodaj [K]
 
+KRYTYCZNE ZASADY:
+- KAŻDY fragment tekstu MUSI mieć oznaczenie (Narrator:, Gracz:, lub Imię NPC:)
+- NIGDY nie pisz narracji bez "Narrator:" na początku linii
+- Nawet krótkie opisy po dialogach MUSZĄ zaczynać się od "Narrator:"
+- Jeśli NPC coś robi (nie mówi), użyj "Narrator:", nie imienia NPC
+
 PRZYKŁAD POPRAWNEGO FORMATOWANIA:
 **Narrator:** Wchodzisz do kuźni. Przy kowadle pracuje wielki mężczyzna w fartuchu pokrytym sadzą.
 
 **Borzyslav [M]:** "Witaj przybyszu! Szukasz dobrej broni czy może naprawy zbroi?"
 
 **Gracz:** Rozglądasz się po warsztacie pełnym młotów i mieczy.
+
+**Narrator:** Kowal kiwa głową z uznaniem i wraca do pracy.
+
+PRZYKŁAD BŁĘDNY (NIE RÓB TAK):
+**Narrator:** Wchodzisz do kuźni.
+
+**Borzyslav [M]:** "Witaj!"
+
+Kowal wraca do pracy. ❌ BŁĄD - brak "Narrator:"
 
 FORMAT ODPOWIEDZI JSON:
 Zawsze odpowiadaj w formacie JSON:

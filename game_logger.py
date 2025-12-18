@@ -3,6 +3,7 @@ System logowania dla gry Słowiańskie Dziedzictwo
 """
 
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 import json
@@ -34,9 +35,12 @@ def setup_logger():
     file_handler.setFormatter(formatter)
     
     # Handler do konsoli (tylko INFO+)
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
+    
+    # Wymuś flush po każdym logu
+    sys.stdout.reconfigure(line_buffering=True)
     
     # Dodaj handlery
     logger.addHandler(file_handler)
