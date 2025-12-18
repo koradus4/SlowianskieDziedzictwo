@@ -148,11 +148,9 @@ class TTSEngine:
             synthesis_input = texttospeech.SynthesisInput(text=tekst)
             
             # Wybierz głos polski z dostosowanym pitch
-            # Narrator: pl-PL-Wavenet-B (męski głęboki, pitch=-2)
-            # Gracz: pl-PL-Wavenet-C (męski spokojny, pitch=0)
-            # NPC męski: pl-PL-Wavenet-D (męski energiczny, pitch=1)
-            # NPC kobieta: pl-PL-Wavenet-A (kobieta wyrazista, pitch=2)
-            gender = texttospeech.SsmlVoiceGender.MALE if "B" in voice_name or "C" in voice_name or "D" in voice_name else texttospeech.SsmlVoiceGender.FEMALE
+            # Google Cloud TTS - polskie głosy Wavenet:
+            # A (FEMALE wyrazista), B (MALE głęboki), C (MALE spokojny), D (FEMALE), E (FEMALE delikatna)
+            gender = texttospeech.SsmlVoiceGender.MALE if "B" in voice_name or "C" in voice_name else texttospeech.SsmlVoiceGender.FEMALE
             voice = texttospeech.VoiceSelectionParams(
                 language_code="pl-PL",
                 name=voice_name,
@@ -162,9 +160,9 @@ class TTSEngine:
             # Ustaw pitch na podstawie głosu
             pitch_map = {
                 "pl-PL-Wavenet-A": 2.0,   # Kobieta NPC - wyżej
-                "pl-PL-Wavenet-B": -2.0,  # Narrator - głębiej
+                "pl-PL-Wavenet-B": -2.0,  # Narrator/NPC męski - głębiej
                 "pl-PL-Wavenet-C": 0.0,   # Gracz mężczyzna - neutralnie
-                "pl-PL-Wavenet-D": 1.0,   # NPC męski - lekko wyżej
+                "pl-PL-Wavenet-D": 1.0,   # Kobieta (nieużywana)
                 "pl-PL-Wavenet-E": 1.5    # Graczka kobieta - delikatnie wyżej
             }
             pitch = pitch_map.get(voice_name, 0.0)
@@ -200,12 +198,13 @@ class TTSEngine:
         try:
             audio_parts = []
             
-            # Mapowanie głosów - 5 różnych głosów Google Cloud (z płcią gracza)
+            # Mapowanie głosów - Google Cloud ma 5 polskich Wavenet głosów:
+            # A (FEMALE), B (MALE), C (MALE), D (FEMALE), E (FEMALE)
             voice_map = {
                 "narrator": "pl-PL-Wavenet-B",  # Męski głęboki (narrator)
                 "gracz_m": "pl-PL-Wavenet-C",    # Męski spokojny (bohater mężczyzna)
                 "gracz_k": "pl-PL-Wavenet-E",    # Kobieta delikatna (bohaterka kobieta)
-                "npc_m": "pl-PL-Wavenet-D",      # Męski energiczny (NPC mężczyzna)
+                "npc_m": "pl-PL-Wavenet-B",      # Męski głęboki (NPC mężczyzna) - używam B jak narrator
                 "npc_k": "pl-PL-Wavenet-A"       # Kobieta wyrazista (NPC kobieta)
             }
             
