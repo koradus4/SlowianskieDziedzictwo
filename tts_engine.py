@@ -401,21 +401,26 @@ class TTSEngine:
         """Określa typ głosu dla Cloud TTS na podstawie mówcy"""
         speaker_lower = speaker.lower()
         
-        logger.info(f"🔍 CLOUD TTS _okresl_glos_cloud: speaker='{speaker}', plec_gracza='{plec_gracza}'")
+        print(f"🔍 CLOUD TTS _okresl_glos_cloud: speaker='{speaker}', speaker_lower='{speaker_lower}', plec_gracza='{plec_gracza}'")
+        logger.info(f"🔍 CLOUD TTS _okresl_glos_cloud: speaker='{speaker}', speaker_lower='{speaker_lower}', plec_gracza='{plec_gracza}'")
         
         # Określ typ głosu
         if "narrator" in speaker_lower:
             voice_type = "narrator"
+            print(f"  ✅ Match: NARRATOR → narrator")
             logger.info(f"  → NARRATOR → narrator")
         elif "gracz" in speaker_lower:
             # Użyj płci gracza do wyboru głosu
             voice_type = "gracz_k" if plec_gracza == "kobieta" else "gracz_m"
+            print(f"  ✅ Match: GRACZ ({plec_gracza}) → {voice_type}")
             logger.info(f"  → GRACZ ({plec_gracza}) → {voice_type}")
         elif "[k]" in speaker_lower:
             voice_type = "npc_k"
+            print(f"  ✅ Match: [k] found → npc_k")
             logger.info(f"  → NPC [K] → npc_k")
         elif "[m]" in speaker_lower:
             voice_type = "npc_m"
+            print(f"  ✅ Match: [m] found → npc_m")
             logger.info(f"  → NPC [M] → npc_m")
         else:
             # Inteligentne rozpoznawanie po imieniu
@@ -425,19 +430,25 @@ class TTSEngine:
             imie_parts = speaker_lower.split()
             if len(imie_parts) > 0:
                 pierwsze_slowo = imie_parts[0]
+                print(f"  🔍 Fallback - sprawdzam imię NPC: '{pierwsze_slowo}'")
                 logger.info(f"  → Sprawdzam imię NPC: '{pierwsze_slowo}'")
                 
                 if pierwsze_slowo.endswith(zenskie_zakonczenia) and pierwsze_slowo not in meskie_wyjatki:
                     voice_type = "npc_k"
+                    print(f"  ✅ Końcówka '{pierwsze_slowo[-2:]}' → npc_k (KOBIETA)")
                     logger.info(f"  → NPC ŻEŃSKI (końcówka '{pierwsze_slowo[-2:]}') → npc_k")
                 else:
                     voice_type = "npc_m"
+                    print(f"  ✅ Brak żeńskiej końcówki → npc_m (MĘŻCZYZNA)")
                     logger.info(f"  → NPC MĘSKI → npc_m")
             else:
                 # Domyślnie narrator
                 voice_type = "narrator"
+                print(f"  ⚠️ Fallback → narrator (brak imienia)")
                 logger.info(f"  → DOMYŚLNY → narrator")
         
+        print(f"  🎯 FINAL RESULT: voice_type='{voice_type}'")
+        logger.info(f"  🎯 FINAL: voice_type='{voice_type}'")
         return voice_type
     
     def _parsuj_dialogi(self, tekst: str, plec_gracza: str) -> list:
