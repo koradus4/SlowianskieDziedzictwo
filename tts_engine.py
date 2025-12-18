@@ -141,6 +141,8 @@ class TTSEngine:
     
     def _syntezuj_google_tts(self, tekst: str, voice_name: str = "pl-PL-Wavenet-B") -> str:
         """Generuje audio przez Google Cloud TTS i zwraca publiczny URL"""
+        print(f"🎙️ _syntezuj_google_tts: voice_name='{voice_name}', tekst_len={len(tekst)}")
+        logger.info(f"🎙️ _syntezuj_google_tts: voice_name='{voice_name}', tekst_len={len(tekst)}")
         try:
             # Przygotuj żądanie
             synthesis_input = texttospeech.SynthesisInput(text=tekst)
@@ -213,6 +215,8 @@ class TTSEngine:
                     continue
                 
                 voice_name = voice_map.get(voice_type, "pl-PL-Wavenet-B")
+                print(f"🎵 Segment: voice_type='{voice_type}' → voice_name='{voice_name}', tekst_len={len(tekst)}")
+                logger.info(f"🎵 Segment: voice_type='{voice_type}' → voice_name='{voice_name}', tekst_len={len(tekst)}")
                 audio_bytes = self._syntezuj_google_tts(tekst, voice_name)
                 
                 if audio_bytes:
